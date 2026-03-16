@@ -1,0 +1,4 @@
+*.stl
+*.3mf
+*.png
+dist/

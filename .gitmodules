@@ -1,0 +1,6 @@
+[submodule "external/BOSL2"]
+	path = external/BOSL2
+	url = https://github.com/BelfrySCAD/BOSL2.git
+[submodule "external/QuackWorks"]
+	path = external/QuackWorks
+	url = https://github.com/AndyLevesque/QuackWorks.git
