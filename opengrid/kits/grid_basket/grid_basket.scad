@@ -4,67 +4,19 @@ use <../../parts/opengrid_beam.scad>
 use <../../parts/opengrid_dual_sided_snap.scad>
 include <BOSL2/std.scad>
 
-module mw_plate_1() {
-  plate_z_beams();
-}
-module mw_plate_2() {
-  plate_xy_beams();
-}
-module mw_plate_3() {
-  plate_bottom_grid();
-}
-module mw_plate_4() {
-  plate_side_grid();
-}
-module mw_plate_5() {
-  plate_side_grid();
-}
-module mw_plate_6() {
-  plate_frontback_grid();
-}
-module mw_plate_7() {
-  plate_frontback_grid();
-}
-
-module mw_assembly_view() {
-  assembledView(
-    basketLiteGrid,
-    Basket_X_Units,
-    Basket_Y_Units,
-    Basket_Z_Units,
-    attachToGridThickness=Attach_to_grid_thickness,
-    explosionDistance=Explosion_distance,
-    dualConnectorSpacing=Dual_connector_spacing
-  );
-}
-
-if (MakerWorld == false)
-  assembledView(
-    basketLiteGrid,
-    Basket_X_Units,
-    Basket_Y_Units,
-    Basket_Z_Units,
-    attachToGridThickness=Attach_to_grid_thickness,
-    explosionDistance=Explosion_distance,
-    dualConnectorSpacing=Dual_connector_spacing
-  );
-
-//basket(Basket_X_Units, Basket_Y_Units, Basket_Z_Units);
-//plate_z_beams();
+basket(Basket_X_Units, Basket_Y_Units, Basket_Z_Units);
 
 /* [Basket Settings] */
 
-MakerWorld = true;
-
 // Version of the tile, Full (6.8mm) or Lite (3.4mm)
-Grid_thickness = "Full"; // [Full,Lite]
+grid_thickness = "Full"; // [Full,Lite]
 
 // Width of basket in openGrid units (side to side)
 Basket_X_Units = 4;
 // Depth of basket in openGrid units (front to back)
 Basket_Y_Units = 3;
 // Height of basket in openGrid units (up and down)
-Basket_Z_Units = 5;
+Basket_Z_Units = 6;
 
 /* [Attachment Options] */
 
@@ -80,17 +32,18 @@ Dual_connector_spacing = 3;
 Orient_for_printing = true;
 
 // How far apart to put pieces as they are diplayed.
-//Explosion_distance = 0;
-Explosion_distance = 5;
+Explosion_distance = 0;
+//Explosion_distance = 5;
 //Explosion_distance = 10;
 
 /* [Hidden] */
 tileSize = 28;
-basketLiteGrid = Grid_thickness == "Lite";
+basketLiteGrid = false;
 tileThickness = basketLiteGrid ? 3.4 : 6.8;
 connectorHoles = true;
 
 attach_to_lite_grid = Attach_to_grid_thickness == "Lite";
+
 module basket(Basket_X_Units, Basket_Y_Units, Basket_Z_Units) {
   basketXmillimeter = Basket_X_Units * tileSize;
   basketYmillimeter = Basket_Y_Units * tileSize;
@@ -106,117 +59,82 @@ module basket(Basket_X_Units, Basket_Y_Units, Basket_Z_Units) {
 
     dual_mounting_snap_x_offset_distance = basketXmillimeter / 2 + tileSize / 2 + Explosion_distance;
     dual_mounting_snap_y_offset_distance = basketYmillimeter / 2 + tileSize / 2 + Explosion_distance;
-    vertical_beam_x_offset_distance = basketXmillimeter / 2 + ( (Explosion_distance + tileThickness) * 4);
+    vertical_beam_x_offset_distance = basketXmillimeter / 2 + 2 * tileThickness + Explosion_distance;
     vertical_beam_y_offset_distance = basketYmillimeter / 2 + basketZmillimeter / 2 + tileThickness + Explosion_distance;
-
-    side_grid_offset_distance = (tileSize * Basket_X_Units) / 2 + (tileSize * Basket_Z_Units) / 2 + (Explosion_distance);
-    frontback_grid_offset_distance = (tileSize * Basket_Y_Units) / 2 + (tileSize * Basket_Z_Units) / 2 + (Explosion_distance);
-
-    move([-vertical_beam_x_offset_distance, vertical_beam_y_offset_distance, 0])
-      plate_z_beams();
-    move([-vertical_beam_x_offset_distance, -vertical_beam_y_offset_distance, 0])
-      plate_xy_beams();
-
-    plate_bottom_grid();
-
-    // Left Panel
-    xmove(-side_grid_offset_distance)
-      plate_side_grid();
-    // Right Panel
-    xmove(side_grid_offset_distance)
-      plate_side_grid();
-    // Front Panel
-    ymove(side_grid_offset_distance)
-      plate_frontback_grid();
-    // Back Panel
-    ymove(-side_grid_offset_distance)
-      plate_frontback_grid();
 
     tag_this("hidden")
       // A block used to position all the parts of the basket.  The box represents the space 
       // directly inside of the basket.
       cube([printable_base_x, printable_base_y, 5], anchor=TOP) {
+        color_this("black")
+          align(TOP)
+            openGridWithDefaults(Basket_X_Units, Basket_Y_Units, tileThickness, anchor=BOTTOM);
+        // Front and Back Bottom Beam
+        for (local_spin = [90, -90]) {
+          attach(TOP, "print_surface", spin=local_spin)
+            left(x_beams_offset_distance)
+              bottomXBeams();
+        }
+        //// Left and Right Bottom Beams
+        for (local_spin = [0, 180]) {
+          attach(TOP, "print_surface", spin=local_spin)
+            left(y_beams_offset_distance)
+              bottomYBeams();
+        }
 
-        //xcopies(n=2, spacing=(tileSize - 3) + Explosion_distance, sp=[dual_mounting_snap_x_offset_distance, dual_mounting_snap_y_offset_distance, 0])
-        dualSidedSnap(Lite=basketLiteGrid, Lite_B=attach_to_lite_grid, Directional=true, Spacing=Dual_connector_spacing, anchor=BOTTOM);
+        // Vertical Beams
+        xcopies(n=4, spacing=-(tileSize + Explosion_distance), sp=[-vertical_beam_x_offset_distance, vertical_beam_y_offset_distance, 0])
+          attach(TOP, "print_surface")
+            verticalBeam();
+
+        // Left and Right Panels
+        color_this("red")
+          align(TOP, [RIGHT, LEFT])
+            openGridWithDefaults(Basket_Y_Units, Basket_Z_Units, tileThickness, spin=90);
+
+        // Front and Back Panels
+        color_this("violet")
+          align(TOP, [FRONT, BACK])
+            openGridWithDefaults(Basket_X_Units, Basket_Z_Units, tileThickness);
+
+        xcopies(n=2, spacing=(tileSize - 3) + Explosion_distance, sp=[dual_mounting_snap_x_offset_distance, dual_mounting_snap_y_offset_distance, 0])
+          dualSidedSnap(Lite=basketLiteGrid, Lite_B=attach_to_lite_grid, Directional=true, Spacing=Dual_connector_spacing, anchor=BOTTOM);
 
         xcopies(n=2, spacing=(tileSize - 3) + Explosion_distance, sp=[dual_mounting_snap_x_offset_distance, dual_mounting_snap_y_offset_distance + (tileSize - 3) + Explosion_distance, 0])
           dualSidedSnap(Lite=basketLiteGrid, Lite_B=attach_to_lite_grid, Directional_A=true, Directional_B=false, Spacing=Dual_connector_spacing, anchor=BOTTOM);
       }
-  }
-  else
-    assembledView(
-      basketLiteGrid,
-      Basket_X_Units,
-      Basket_Y_Units,
-      Basket_Z_Units,
-      attachToGridThickness=Attach_to_grid_thickness,
-      explosionDistance=Explosion_distance,
-      dualConnectorSpacing=Dual_connector_spacing
-    );
-}
-
-module openGridWithDefaults(xUnits, yUnits, thickness, anchor = CENTER, connectorHoles = false, spin = 0) {
-  attachable(size=[xUnits * tileSize, yUnits * tileSize, thickness], spin=spin) {
-    openGrid(Board_Width=xUnits, Board_Height=yUnits, tileSize=tileSize, Tile_Thickness=tileThickness, anchor=anchor, Connector_Holes=connectorHoles);
-    children();
-  }
-}
-
-module verticalBeam(anchor, orient) {
-  color_this("orange")
-    opengrid_beam(lengthUnits=Basket_Z_Units, tileSize=tileSize, tileThickness=tileThickness, anchor=anchor, orient=orient);
-}
-
-module bottomXBeam(anchor, orient) {
-  color_this("blue")
-    opengrid_beam(lengthUnits=Basket_X_Units, tileSize=tileSize, tileThickness=tileThickness, anchor=anchor, orient=orient);
-}
-module bottomYBeam(anchor, orient) {
-  color_this("blue")
-    opengrid_beam(lengthUnits=Basket_Y_Units, tileSize=tileSize, tileThickness=tileThickness, anchor=anchor, orient=orient);
-}
-
-module assembledView(basketLiteGrid, xUnits, yUnits, zUnits, dualConnectorSpacing, attachToGridThickness, explosionDistance) {
-  basketXmillimeter = xUnits * tileSize;
-  basketYmillimeter = yUnits * tileSize;
-  basketZmillimeter = zUnits * tileSize;
-  attachTo_lite_grid = attachToGridThickness == "Lite";
-
-  hide("hidden")
-
+  } else {
     tag_this("hidden")
       cube([basketXmillimeter, basketYmillimeter, basketZmillimeter], anchor=BOTTOM) {
         $anchor_inside = false;
         // Bottom Panel
-        attach(BOTTOM, TOP, overlap=-explosionDistance)
+        attach(BOTTOM, TOP, overlap=-Explosion_distance)
           color_this("black")
-            openGridWithDefaults(xUnits, yUnits, tileThickness) {
+            openGridWithDefaults(Basket_X_Units, Basket_Y_Units, tileThickness) {
               // Front and Back Bottom Beam
-              attach([FRONT, BACK], RIGHT, align=TOP, overlap=-explosionDistance)
-                bottomXBeam();
-              // Left and Right Bottom Beam
+              attach([FRONT, BACK], RIGHT, align=TOP, overlap=-Explosion_distance)
+                bottomXBeams();
+              // Left and Right Bottom Beams
               //align()
-              attach([LEFT, RIGHT], RIGHT, align=TOP, overlap=-explosionDistance)
-                bottomYBeam();
+              attach([LEFT, RIGHT], RIGHT, align=TOP, overlap=-Explosion_distance)
+                bottomYBeams();
             }
 
         // Left and Right Panels
-        attach([LEFT, RIGHT], TOP, overlap=-explosionDistance)
+        attach([LEFT, RIGHT], TOP, overlap=-Explosion_distance)
           color_this("red")
-            openGridWithDefaults(yUnits, zUnits, tileThickness);
+            openGridWithDefaults(Basket_Y_Units, Basket_Z_Units, tileThickness);
 
         // Front and Back Panels
-        attach([FRONT, BACK], TOP, overlap=-explosionDistance)
+        attach([FRONT, BACK], TOP, overlap=-Explosion_distance)
           color_this("violet")
-            openGridWithDefaults(xUnits, zUnits, tileThickness) {
+            openGridWithDefaults(Basket_X_Units, Basket_Z_Units, tileThickness) {
 
-              // Vertical Beam
-              attach([RIGHT, LEFT], RIGHT, align=TOP, overlap=-explosionDistance)
+              // Vertical Beams
+              attach([RIGHT, LEFT], RIGHT, align=TOP, overlap=-Explosion_distance)
                 verticalBeam();
             }
         // Top Dual Sided Snaps
-        echo(basketLiteGrid=basketLiteGrid);
         xcopies(spacing=basketXmillimeter - tileSize, n=2, sp=[0, 0, 0])
           position(TOP + LEFT + FRONT)
             move([tileSize / 2, 0, -tileSize / 2])
@@ -225,36 +143,29 @@ module assembledView(basketLiteGrid, xUnits, yUnits, zUnits, dualConnectorSpacin
         xcopies(spacing=basketXmillimeter - tileSize, n=2, sp=[0, 0, 0])
           position(BOTTOM + LEFT + FRONT)
             move([tileSize / 2, 0, tileSize / 2])
-              dualSidedSnap(Lite=basketLiteGrid, Lite_B=attach_to_lite_grid, Directional_A=true, Directional_B=false, Spacing=dualConnectorSpacing, anchor=TOP, orient=BACK, spin=180);
+              dualSidedSnap(Lite=basketLiteGrid, Lite_B=attach_to_lite_grid, Directional_A=true, Directional_B=false, Spacing=Dual_connector_spacing, anchor=TOP, orient=BACK, spin=180);
       }
-}
+  }
 
-module plate_z_beams() {
-  xcopies(n=4, spacing=(tileThickness * 3))
-    yrot(-45)
-      verticalBeam(anchor="print_surface");
-}
+  module openGridWithDefaults(xUnits, yUnits, thickness, anchor = CENTER, connectorHoles = false, spin = 0) {
 
-module plate_xy_beams() {
-  xcopies(n=2, spacing=-(tileThickness * 3), sp=-(tileThickness * 3) / 2)
-    yrot(-45)
-      bottomXBeam();
-  xcopies(n=2, spacing=(tileThickness * 3), sp=(tileThickness * 3) / 2)
-    yrot(-45)
-      bottomYBeam();
-}
+    attachable(size=[xUnits * tileSize, yUnits * tileSize, thickness], spin=spin) {
+      openGrid(Board_Width=xUnits, Board_Height=yUnits, tileSize=tileSize, Tile_Thickness=tileThickness, anchor=anchor, Connector_Holes=connectorHoles);
+      children();
+    }
+  }
 
-module plate_bottom_grid() {
-  color_this("black")
-    openGridWithDefaults(Basket_X_Units, Basket_Y_Units, tileThickness, anchor=BOTTOM);
-}
+  module verticalBeam(anchor, orient) {
+    color_this("orange")
+      opengrid_beam(lengthUnits=Basket_Z_Units, tileSize=tileSize, tileThickness=tileThickness, anchor=anchor, orient=orient);
+  }
 
-module plate_side_grid() {
-  color_this("red")
-    openGridWithDefaults(Basket_Y_Units, Basket_Z_Units, tileThickness, anchor=BOTTOM, spin=90);
-}
-
-module plate_frontback_grid() {
-  color_this("violet")
-    openGridWithDefaults(Basket_X_Units, Basket_Z_Units, tileThickness);
+  module bottomXBeams(anchor, orient) {
+    color_this("blue")
+      opengrid_beam(lengthUnits=Basket_X_Units, tileSize=tileSize, tileThickness=tileThickness, anchor=anchor, orient=orient);
+  }
+  module bottomYBeams() {
+    color_this("green")
+      opengrid_beam(lengthUnits=Basket_Y_Units, tileSize=tileSize, tileThickness=tileThickness);
+  }
 }
