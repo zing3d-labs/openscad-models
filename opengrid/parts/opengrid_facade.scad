@@ -87,7 +87,8 @@ module openGridFacade(
   topEdgeDirectionalSnaps = false,
   includeRemovalNotches,
   removalNotchWidth,
-  removalNotchDepth
+  removalNotchDepth,
+  anchor, orient, spin
 ) {
 
   $fn = Smoothing;
@@ -99,8 +100,10 @@ module openGridFacade(
   center_to_y_edge_distance = y_size_mm / 2;
   center_to_x_edge_distance = x_size_mm / 2;
 
-  diff()
-    cuboid(
+  attachable(size=[x_size_mm, y_size_mm, facadeThickness], anchor=anchor, orient=orient, spin=spin) {
+    down(facadeThickness / 2)
+    diff()
+      cuboid(
       [x_size_mm, y_size_mm, facadeThickness],
       rounding=(cornerRefinementType == "Fillet" ? cornerRefinementSize : 0),
       chamfer=(cornerRefinementType == "Chamfer" ? cornerRefinementSize : 0),
@@ -157,5 +160,7 @@ module openGridFacade(
         attach([FRONT, BACK, LEFT, RIGHT], FRONT, inside=true, shiftout=0.01)
           tag("remove")
             cuboid([removalNotchWidth, removalNotchDepth, facadeThickness + 0.1]);
-    }
+      }
+    children();
+  }
 }
