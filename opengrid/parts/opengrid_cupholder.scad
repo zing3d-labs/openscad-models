@@ -119,7 +119,7 @@ module openGridCupholder(
     includeInternalSnaps=(snapPlacement == "All"),
     topCornerDirectionalSnaps=false,
     topEdgeDirectionalSnaps=false,
-    anchor=BOTTOM
+    anchor=TOP
   ) {
     attach(BOTTOM, TOP)
       cupBody();

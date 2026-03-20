@@ -100,8 +100,67 @@ module openGridFacade(
   center_to_y_edge_distance = y_size_mm / 2;
   center_to_x_edge_distance = x_size_mm / 2;
 
-  attachable(size=[x_size_mm, y_size_mm, facadeThickness], anchor=anchor, orient=orient, spin=spin) {
-    down(facadeThickness / 2)
+  snap_thickness = liteSnap ? 3.4 : 6.8;
+  total_thickness = facadeThickness + snap_thickness;
+
+  snap_top_z  = total_thickness / 2;
+  corner_x    = x_size_mm / 2 - halfGridUnitDimension;
+  corner_y    = y_size_mm / 2 - halfGridUnitDimension;
+
+  _corner_anchors = [
+    named_anchor("snap_bl",                       [-corner_x, -corner_y, snap_top_z], TOP, 0),
+    named_anchor("snap_br",                       [ corner_x, -corner_y, snap_top_z], TOP, 0),
+    named_anchor("snap_tl",                       [-corner_x,  corner_y, snap_top_z], TOP, 0),
+    named_anchor("snap_tr",                       [ corner_x,  corner_y, snap_top_z], TOP, 0),
+    named_anchor(str("snap_0_0"),                 [-corner_x, -corner_y, snap_top_z], TOP, 0),
+    named_anchor(str("snap_", xUnits-1, "_0"),    [ corner_x, -corner_y, snap_top_z], TOP, 0),
+    named_anchor(str("snap_0_", yUnits-1),        [-corner_x,  corner_y, snap_top_z], TOP, 0),
+    named_anchor(str("snap_", xUnits-1, "_", yUnits-1), [ corner_x, corner_y, snap_top_z], TOP, 0),
+  ];
+
+  _top_bottom_edge_anchors = includeEdgeSnaps ? [
+    for (i = [0 : xUnits - 3], y_sign = [-1, 1])
+      let(
+        ex = (i - (xUnits - 3) / 2) * gridUnitDimension,
+        ey = y_sign * corner_y,
+        gx = i + 1,
+        gy = y_sign < 0 ? 0 : yUnits - 1
+      )
+        named_anchor(str("snap_", gx, "_", gy), [ex, ey, snap_top_z], TOP, 0)
+  ] : [];
+
+  _side_edge_anchors = includeEdgeSnaps ? [
+    for (x_sign = [-1, 1], j = [0 : yUnits - 3])
+      let(
+        ex = x_sign * corner_x,
+        ey = (j - (yUnits - 3) / 2) * gridUnitDimension,
+        gx = x_sign < 0 ? 0 : xUnits - 1,
+        gy = j + 1
+      )
+        named_anchor(str("snap_", gx, "_", gy), [ex, ey, snap_top_z], TOP, 0)
+  ] : [];
+
+  _internal_anchors = includeInternalSnaps ? [
+    for (i = [0 : xUnits - 3], j = [0 : yUnits - 3])
+      named_anchor(
+        str("snap_", i + 1, "_", j + 1),
+        [(i - (xUnits - 3) / 2) * gridUnitDimension,
+         (j - (yUnits - 3) / 2) * gridUnitDimension,
+         snap_top_z],
+        TOP, 0
+      )
+  ] : [];
+
+  anchors = concat(
+    [named_anchor("bottom_center", [0, 0, -total_thickness / 2], BOTTOM, 0)],
+    _corner_anchors,
+    _top_bottom_edge_anchors,
+    _side_edge_anchors,
+    _internal_anchors
+  );
+
+  attachable(size=[x_size_mm, y_size_mm, total_thickness], anchors=anchors, anchor=anchor, orient=orient, spin=spin) {
+    down(total_thickness / 2)
     diff()
       cuboid(
       [x_size_mm, y_size_mm, facadeThickness],
