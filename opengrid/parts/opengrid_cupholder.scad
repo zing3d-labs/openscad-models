@@ -3,6 +3,7 @@ use <opengrid_facade.scad>
 
 /* [Cup Holder] */
 
+
 // Inner diameter at the bottom (open end) of the cup holder, in mm
 Cup_Holder_Bottom_Diameter = 75;
 
@@ -121,7 +122,7 @@ module openGridCupholder(
     topEdgeDirectionalSnaps=false,
     anchor=TOP
   ) {
-    attach(BOTTOM, TOP)
+    attach(BOTTOM, TOP, overlap=0.1)
       cupBody();
   }
 }
