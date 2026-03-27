@@ -25,7 +25,7 @@ Base_Thickness = 4;
 
 // Use the bottom (open end) diameter to size the grid instead of the top diameter.
 // The top diameter may overlap additional tiles slightly, which is fine if enabled.
-Size_Grid_To_Bottom_Diameter = false;
+Size_Base_Units_To_Bottom_Diameter = false;
 
 // Snap Placement
 Snap_Placement = "Corners"; // [All, Edges, Corners]
@@ -50,7 +50,7 @@ openGridCupholder(
   cupHolderHeight=Cup_Holder_Height,
   wallThickness=Wall_Thickness,
   baseThickness=Base_Thickness,
-  sizeGridToBottomDiameter=Size_Grid_To_Bottom_Diameter,
+  sizeGridToBottomDiameter=Size_Base_Units_To_Bottom_Diameter,
   snapPlacement=Snap_Placement,
   cornerRefinementType=Corner_Refinement_Type,
   cornerRefinementSize=Corner_Refinement_Size,
