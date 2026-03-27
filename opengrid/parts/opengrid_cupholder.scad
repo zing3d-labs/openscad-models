@@ -3,7 +3,6 @@ use <opengrid_facade.scad>
 
 /* [Cup Holder] */
 
-
 // Inner diameter at the bottom (open end) of the cup holder, in mm
 Cup_Holder_Bottom_Diameter = 75;
 
@@ -24,11 +23,9 @@ Grid_Type = "Lite"; // [Full,Lite]
 // Thickness of the mounting base (passed to the facade), in mm
 Base_Thickness = 4;
 
-// Override grid units on X (0 = auto-calculated from cup width)
-Units_X_Override = 3;
-
-// Override grid units on Y (0 = auto-calculated from cup width)
-Units_Y_Override = 3;
+// Use the bottom (open end) diameter to size the grid instead of the top diameter.
+// The top diameter may overlap additional tiles slightly, which is fine if enabled.
+Size_Grid_To_Bottom_Diameter = false;
 
 // Snap Placement
 Snap_Placement = "Corners"; // [All, Edges, Corners]
@@ -53,8 +50,7 @@ openGridCupholder(
   cupHolderHeight=Cup_Holder_Height,
   wallThickness=Wall_Thickness,
   baseThickness=Base_Thickness,
-  unitsXOverride=Units_X_Override,
-  unitsYOverride=Units_Y_Override,
+  sizeGridToBottomDiameter=Size_Grid_To_Bottom_Diameter,
   snapPlacement=Snap_Placement,
   cornerRefinementType=Corner_Refinement_Type,
   cornerRefinementSize=Corner_Refinement_Size,
@@ -67,8 +63,7 @@ module openGridCupholder(
   cupHolderHeight = 90,
   wallThickness = 2,
   baseThickness = 4,
-  unitsXOverride = 0,
-  unitsYOverride = 0,
+  sizeGridToBottomDiameter = false,
   snapPlacement = "Corners",
   cornerRefinementType = "Fillet",
   cornerRefinementSize = 5,
@@ -82,10 +77,8 @@ module openGridCupholder(
   outer_bottom_diameter = cupHolderBottomDiameter + 2 * wallThickness;
   outer_top_diameter = cupHolderTopDiameter + 2 * wallThickness;
 
-  max_outer_diameter = max(outer_bottom_diameter, outer_top_diameter);
-  auto_units = ceil(max_outer_diameter / gridUnitDimension);
-  x_units = unitsXOverride != 0 ? unitsXOverride : auto_units;
-  y_units = unitsYOverride != 0 ? unitsYOverride : auto_units;
+  sizing_diameter = sizeGridToBottomDiameter ? outer_bottom_diameter : outer_top_diameter;
+  units = ceil(sizing_diameter / gridUnitDimension);
 
   // Hollow frustum cup body, attachable so attach() can position it.
   // d1 = bottom (open end), d2 = top (at facade). Centered at z=0.
@@ -109,8 +102,8 @@ module openGridCupholder(
 
   // Render: facade base with cup body attached to its bottom face.
   openGridFacade(
-    xUnits=x_units,
-    yUnits=y_units,
+    xUnits=units,
+    yUnits=units,
     facadeThickness=baseThickness,
     cornerRefinementType=cornerRefinementType,
     cornerRefinementSize=cornerRefinementSize,
