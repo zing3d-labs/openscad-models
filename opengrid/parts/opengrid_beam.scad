@@ -7,6 +7,12 @@ Units = 4;
 // Grid version
 Grid_Version = "Lite"; // [Full,Lite]
 
+// Include connectors on side A
+Connectors_Side_A = true;
+
+// Include connectors on side B
+Connectors_Side_B = true;
+
 {
 
   tileThickness = Grid_Version == "Full" ? 6.8 : 4.0;
@@ -14,9 +20,10 @@ Grid_Version = "Lite"; // [Full,Lite]
   //opengrid_beam(lengthUnits=units, tileThickness=6.8, anchor="print_surface", orient=DOWN)
   echo(tileThickness1=tileThickness);
   yrot(-45)
-    opengrid_beam(lengthUnits=Units, tileThickness=tileThickness);
+    opengrid_beam(lengthUnits=Units, tileThickness=tileThickness,
+                  connectorsA=Connectors_Side_A, connectorsB=Connectors_Side_B);
 
-  module opengrid_beam(lengthUnits, tileSize = 28, tileThickness, anchor, spin, orient) {
+  module opengrid_beam(lengthUnits, tileSize = 28, tileThickness, connectorsA = true, connectorsB = true, anchor, spin, orient) {
     echo(Grid_Version=Grid_Version);
     echo(tileThickness=tileThickness);
     cutterDistance = tileThickness * 0.5;
@@ -52,20 +59,22 @@ Grid_Version = "Lite"; // [Full,Lite]
       diff()
         union()
           cube(size=size, center=true) {
-            ycopies(spacing=tileSize, n=lengthUnits - 1, sp=0)
-              ymove(-(lengthUnits * tileSize) / 2 + tileSize)
-                attach(RIGHT)
-                  color("blue")
-                    top_half()
-                      up(0.3)
-                        connector();
-            ycopies(spacing=tileSize, n=lengthUnits - 1, sp=0)
-              ymove(-(lengthUnits * tileSize) / 2 + tileSize)
-                attach(TOP, spin=90)
-                  color("lightblue")
-                    top_half()
-                      up(0.3)
-                        connector();
+            if (connectorsB)
+              ycopies(spacing=tileSize, n=lengthUnits - 1, sp=0)
+                ymove(-(lengthUnits * tileSize) / 2 + tileSize)
+                  attach(RIGHT)
+                    color("blue")
+                      top_half()
+                        up(0.3)
+                          connector();
+            if (connectorsA)
+              ycopies(spacing=tileSize, n=lengthUnits - 1, sp=0)
+                ymove(-(lengthUnits * tileSize) / 2 + tileSize)
+                  attach(TOP, spin=90)
+                    color("lightblue")
+                      top_half()
+                        up(0.3)
+                          connector();
             tag("remove") attach(parent=BOTTOM + LEFT, child=TOP, overlap=cutterDistance, shiftout=.01)
                 cube(size=[tileThickness, tileSize * lengthUnits + 1, tileThickness], center=true);
           }
