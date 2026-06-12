@@ -5,7 +5,7 @@ include <BOSL2/std.scad>
 Units = 4;
 
 // Grid version
-Grid_Version = "Lite"; // [Full,Lite]
+Grid_Version = "Full"; // [Full,Lite]
 
 // Include connectors on side A
 Connectors_Side_A = true;
@@ -13,17 +13,25 @@ Connectors_Side_A = true;
 // Include connectors on side B
 Connectors_Side_B = true;
 
+// Style of the aesthetic end at corner 1. Extended fills the corner gap with adjacent beams.
+Corner_1 = "Flush"; // [Flush,Extended]
+
+// Style of the aesthetic end at corner 2. Extended fills the corner gap with adjacent beams.
+Corner_2 = "Flush"; // [Flush,Extended]
+
 {
 
   tileThickness = Grid_Version == "Full" ? 6.8 : 4.0;
-  //tileThickness=6.8;
   //opengrid_beam(lengthUnits=units, tileThickness=6.8, anchor="print_surface", orient=DOWN)
   echo(tileThickness1=tileThickness);
   yrot(-45)
-    opengrid_beam(lengthUnits=Units, tileThickness=tileThickness,
-                  connectorsA=Connectors_Side_A, connectorsB=Connectors_Side_B);
+  opengrid_beam(
+    lengthUnits=Units, tileThickness=tileThickness,
+    connectorsA=Connectors_Side_A, connectorsB=Connectors_Side_B,
+    corner1=Corner_1, corner2=Corner_2
+  );
 
-  module opengrid_beam(lengthUnits, tileSize = 28, tileThickness, connectorsA = true, connectorsB = true, anchor, spin, orient) {
+  module opengrid_beam(lengthUnits, tileSize = 28, tileThickness, connectorsA = true, connectorsB = true, corner1 = "Flush", corner2 = "Flush", anchor, spin, orient) {
     echo(Grid_Version=Grid_Version);
     echo(tileThickness=tileThickness);
     cutterDistance = tileThickness * 0.5;
@@ -39,8 +47,13 @@ Connectors_Side_B = true;
 
     halfBeamLength = lengthUnits * tileSize / 2;
     echo(halfBeamLength=halfBeamLength);
+    half_beam_thickness = tileThickness / 2;
 
-    size = [tileThickness, tileSize * lengthUnits, tileThickness];
+    ext1 = corner1 == "Extended" ? tileThickness : 0;
+    ext2 = corner2 == "Extended" ? tileThickness : 0;
+
+    beam_length = tileSize * lengthUnits;
+    size = [tileThickness, beam_length, tileThickness];
     anchors = [
       named_anchor("print_surface", [-print_surface_offset, 0, -print_surface_offset], BOTTOM + LEFT, 0),
       named_anchor("print_surface_left", [-tileThickness / 2, 0, -print_surface_edge_offset], BOTTOM + LEFT, 0),
@@ -55,30 +68,68 @@ Connectors_Side_B = true;
       named_anchor("connectors_end_b", [connectors_end_offset, 0, 0], RIGHT, 0),
     ];
 
+    function beam_shape() = [
+      [-half_beam_thickness, half_beam_thickness],
+      [half_beam_thickness, half_beam_thickness],
+      [half_beam_thickness, -half_beam_thickness],
+      [-print_surface_edge_offset, -half_beam_thickness],
+      [-half_beam_thickness, -print_surface_edge_offset]
+    ];
+
     attachable(size=size, anchor=anchor, spin=spin, orient=orient, anchors=anchors) {
       diff()
         union()
-          cube(size=size, center=true) {
+          rot([90,0,0])
+          linear_sweep(beam_shape(), height=beam_length, center=true) {
             if (connectorsB)
-              ycopies(spacing=tileSize, n=lengthUnits - 1, sp=0)
-                ymove(-(lengthUnits * tileSize) / 2 + tileSize)
-                  attach(RIGHT)
+              zcopies(spacing=tileSize, n=lengthUnits - 1, sp=-(halfBeamLength - tileSize))
+                right(half_beam_thickness)
+                  yrot(90)
                     color("blue")
                       top_half()
                         up(0.3)
                           connector();
             if (connectorsA)
-              ycopies(spacing=tileSize, n=lengthUnits - 1, sp=0)
-                ymove(-(lengthUnits * tileSize) / 2 + tileSize)
-                  attach(TOP, spin=90)
+              zcopies(spacing=tileSize, n=lengthUnits - 1, sp=-(halfBeamLength - tileSize))
+                back(half_beam_thickness)
+                  rot([-90, 90, 0])
                     color("lightblue")
                       top_half()
                         up(0.3)
                           connector();
-            tag("remove") attach(parent=BOTTOM + LEFT, child=TOP, overlap=cutterDistance, shiftout=.01)
-                cube(size=[tileThickness, tileSize * lengthUnits + 1, tileThickness], center=true);
+            //if (ext1 > 0) {
+            //  ymove(-(halfBeamLength + ext1 / 2))
+            //    cube([tileThickness, ext1, tileThickness], center=true);
+            //  tag("remove")
+            //    hull() {
+            //      translate([-tileThickness / 2, -halfBeamLength, -tileThickness / 2])
+            //        cube(0.01, center=true);
+            //      translate([-tileThickness / 2, -(halfBeamLength + ext1), -tileThickness / 2])
+            //        cube(0.01, center=true);
+            //      translate([tileThickness / 2, -(halfBeamLength + ext1), -tileThickness / 2])
+            //        cube(0.01, center=true);
+            //      translate([-tileThickness / 2, -(halfBeamLength + ext1), tileThickness / 2])
+            //        cube(0.01, center=true);
+            //    }
+            //}
+            //if (ext2 > 0) {
+            //  ymove(halfBeamLength + ext2 / 2)
+            //    cube([tileThickness, ext2, tileThickness], center=true);
+            //  tag("remove")
+            //    hull() {
+            //      translate([-tileThickness / 2, halfBeamLength, -tileThickness / 2])
+            //        cube(0.01, center=true);
+            //      translate([-tileThickness / 2, halfBeamLength + ext2, -tileThickness / 2])
+            //        cube(0.01, center=true);
+            //      translate([tileThickness / 2, halfBeamLength + ext2, -tileThickness / 2])
+            //        cube(0.01, center=true);
+            //      translate([-tileThickness / 2, halfBeamLength + ext2, tileThickness / 2])
+            //        cube(0.01, center=true);
+            //    }
+            //}
           }
       children();
     }
   }
+
 }
