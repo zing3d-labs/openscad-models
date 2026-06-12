@@ -42,7 +42,7 @@ Corner_2 = "Extended"; // [Flush,Extended]
     print_surface_offset = cutterDistance - (cutterDistance * sin(45));
     echo(print_surface_offset=print_surface_offset);
 
-    print_surface_edge_offset = (tileThickness / 2) - (sqrt(2) * cutterDistance);
+    print_surface_edge_offset = (sqrt(2) * cutterDistance) - (tileThickness / 2);
     echo(print_surface_edge_offset=print_surface_edge_offset);
     connectors_end_offset = (tileThickness / 2) + (connector_length() / 2);
 
@@ -52,8 +52,8 @@ Corner_2 = "Extended"; // [Flush,Extended]
 
     module end_cap() {
       p1 = [half_beam_thickness, half_beam_thickness, tileThickness];
-      p2 = [-half_beam_thickness, -print_surface_edge_offset, 0];
-      p3 = [-print_surface_edge_offset, -half_beam_thickness, 0];
+      p2 = [-half_beam_thickness, print_surface_edge_offset, 0];
+      p3 = [print_surface_edge_offset, -half_beam_thickness, 0];
 
       my_plane = plane3pt(p1, p2, p3);
 
@@ -69,14 +69,14 @@ Corner_2 = "Extended"; // [Flush,Extended]
     size = [tileThickness, beam_length, tileThickness];
     anchors = [
       named_anchor("print_surface", [-print_surface_offset, 0, -print_surface_offset], BOTTOM + LEFT, 0),
-      named_anchor("print_surface_left", [-tileThickness / 2, 0, -print_surface_edge_offset], BOTTOM + LEFT, 0),
-      named_anchor("print_surface_right", [-print_surface_edge_offset, 0, -tileThickness / 2], BOTTOM + LEFT, 0),
+      named_anchor("print_surface_left", [-tileThickness / 2, 0, print_surface_edge_offset], BOTTOM + LEFT, 0),
+      named_anchor("print_surface_right", [print_surface_edge_offset, 0, -tileThickness / 2], BOTTOM + LEFT, 0),
       named_anchor("print_surface_front", [-print_surface_offset, -halfBeamLength, -print_surface_offset], BOTTOM + LEFT, 0),
-      named_anchor("print_surface_front_left", [-tileThickness / 2, -halfBeamLength, -print_surface_edge_offset], BOTTOM + LEFT, 0),
-      named_anchor("print_surface_front_right", [-print_surface_edge_offset, -halfBeamLength, -tileThickness / 2], BOTTOM + LEFT, 0),
+      named_anchor("print_surface_front_left", [-tileThickness / 2, -halfBeamLength, print_surface_edge_offset], BOTTOM + LEFT, 0),
+      named_anchor("print_surface_front_right", [print_surface_edge_offset, -halfBeamLength, -tileThickness / 2], BOTTOM + LEFT, 0),
       named_anchor("print_surface_back", [-print_surface_offset, halfBeamLength, -print_surface_offset], BOTTOM + LEFT, 0),
-      named_anchor("print_surface_back_left", [-tileThickness / 2, halfBeamLength, -print_surface_edge_offset], BOTTOM + LEFT, 0),
-      named_anchor("print_surface_back_right", [-print_surface_edge_offset, halfBeamLength, -tileThickness / 2], BOTTOM + LEFT, 0),
+      named_anchor("print_surface_back_left", [-tileThickness / 2, halfBeamLength, print_surface_edge_offset], BOTTOM + LEFT, 0),
+      named_anchor("print_surface_back_right", [print_surface_edge_offset, halfBeamLength, -tileThickness / 2], BOTTOM + LEFT, 0),
       named_anchor("connectors_end_a", [0, 0, connectors_end_offset], TOP, 0),
       named_anchor("connectors_end_b", [connectors_end_offset, 0, 0], RIGHT, 0),
     ];
@@ -86,8 +86,8 @@ Corner_2 = "Extended"; // [Flush,Extended]
         [-half_beam_thickness, half_beam_thickness],
         [half_beam_thickness, half_beam_thickness],
         [half_beam_thickness, -half_beam_thickness],
-        [-print_surface_edge_offset, -half_beam_thickness],
-        [-half_beam_thickness, -print_surface_edge_offset],
+        [print_surface_edge_offset, -half_beam_thickness],
+        [-half_beam_thickness, print_surface_edge_offset],
       ];
 
     attachable(size=size, anchor=anchor, spin=spin, orient=orient, anchors=anchors) {
