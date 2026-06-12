@@ -57,9 +57,13 @@ Corner_2 = "Extended"; // [Flush,Extended]
 
       my_plane = plane3pt(p1, p2, p3);
 
-      bottom_half(z=(.75 * tileThickness))
-        half_of(my_plane, s=3 * tileThickness)
-          linear_sweep(beam_shape(), height=tileThickness, center=false);
+      union() {
+        up(print_surface_edge_offset)
+          bottom_half(z=(.8 * tileThickness))
+            half_of(my_plane, s=3 * tileThickness)
+              linear_sweep(beam_shape(), height=tileThickness, center=false);
+        linear_sweep(beam_shape(), height=print_surface_edge_offset, center=false);
+      }
     }
 
     ext1 = corner1 == "Extended" ? tileThickness : 0;
@@ -113,13 +117,13 @@ Corner_2 = "Extended"; // [Flush,Extended]
                             connector();
               if (ext1 > 0) {
                 color("orange")
-                  move([0, 0, beam_length / 2])
+                  move([0, 0, halfBeamLength])
                     rot([0, 0, 0])
                       end_cap();
               }
               if (ext2 > 0) {
                 color("pink")
-                  move([0, 0, -(beam_length / 2)])
+                  move([0, 0, -(halfBeamLength)])
                     zflip()
                       end_cap();
               }

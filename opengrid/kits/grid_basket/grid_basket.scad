@@ -33,6 +33,14 @@ Orient_for_printing = true;
 
 // How far apart to put pieces as they are diplayed.
 Explosion_distance = 0;
+
+/* [Beam Corner Options] */
+
+// Style of beam aesthetic ends at corner 1. Extended fills the corner gap.
+Beam_Corner_1 = "Flush"; // [Flush,Extended]
+
+// Style of beam aesthetic ends at corner 2. Extended fills the corner gap.
+Beam_Corner_2 = "Flush"; // [Flush,Extended]
 //Explosion_distance = 5;
 //Explosion_distance = 10;
 
@@ -162,8 +170,10 @@ module basket(Basket_X_Units, Basket_Y_Units, Basket_Z_Units) {
 
   module bottomXBeams(anchor, orient) {
     color_this("blue")
-      opengrid_beam(lengthUnits=Basket_X_Units, tileSize=tileSize, tileThickness=tileThickness, anchor=anchor, orient=orient);
+      opengrid_beam(lengthUnits=Basket_X_Units, tileSize=tileSize, tileThickness=tileThickness,
+                    corner1=Beam_Corner_1, corner2=Beam_Corner_2, anchor=anchor, orient=orient);
   }
+
   module bottomYBeams() {
     color_this("green")
       opengrid_beam(lengthUnits=Basket_Y_Units, tileSize=tileSize, tileThickness=tileThickness);
