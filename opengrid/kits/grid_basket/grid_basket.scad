@@ -8,7 +8,7 @@ basket(Basket_X_Units, Basket_Y_Units, Basket_Z_Units);
 
 /* [Basket Settings] */
 
-// Version of the tile, Full (6.8mm) or Lite (3.4mm)
+// Version of the tile, Full (6.8mm) or Lite (4.0mm)
 grid_thickness = "Full"; // [Full,Lite]
 
 // Width of basket in openGrid units (side to side)
@@ -46,8 +46,8 @@ Beam_Corner_2 = "Flush"; // [Flush,Extended]
 
 /* [Hidden] */
 tileSize = 28;
-basketLiteGrid = false;
-tileThickness = basketLiteGrid ? 3.4 : 6.8;
+basketLiteGrid = grid_thickness == "Lite";
+tileThickness = basketLiteGrid ? 4.0 : 6.8;
 connectorHoles = true;
 
 attach_to_lite_grid = Attach_to_grid_thickness == "Lite";
