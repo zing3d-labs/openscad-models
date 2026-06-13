@@ -32,9 +32,18 @@ Dual_connector_spacing = 3;
 Orient_for_printing = true;
 
 // How far apart to put pieces as they are diplayed.
-Explosion_distance = 0;
-//Explosion_distance = 5;
-//Explosion_distance = 10;
+Explosion_distance = 5;
+
+/* [Beam Corner Options] */
+
+// Style of beam aesthetic ends of X beams. (Only one of the 3 beams should be set to "Extended" or they will overlap.)
+Beam_Corners_X = "Extended"; // [Flush,Extended]
+
+// Style of beam aesthetic ends of Y beams. (Only one of the 3 beams should be set to "Extended" or they will overlap.)
+Beam_Corners_Y = "Flush"; // [Flush,Extended]
+
+// Style of beam aesthetic ends of Z beams. (Only one of the 3 beams should be set to "Extended" or they will overlap.)
+Beam_Corners_Z = "Flush"; // [Flush,Extended]
 
 /* [Hidden] */
 tileSize = 28;
@@ -157,15 +166,18 @@ module basket(Basket_X_Units, Basket_Y_Units, Basket_Z_Units) {
 
   module verticalBeam(anchor, orient) {
     color_this("orange")
-      opengrid_beam(lengthUnits=Basket_Z_Units, tileSize=tileSize, tileThickness=tileThickness, anchor=anchor, orient=orient);
+      opengrid_beam(lengthUnits=Basket_Z_Units, tileSize=tileSize, tileThickness=tileThickness, anchor=anchor, orient=orient, corner1=Beam_Corners_Z, corner2=Beam_Corners_Z);
   }
 
   module bottomXBeams(anchor, orient) {
     color_this("blue")
-      opengrid_beam(lengthUnits=Basket_X_Units, tileSize=tileSize, tileThickness=tileThickness, anchor=anchor, orient=orient);
+      opengrid_beam(
+        lengthUnits=Basket_X_Units, tileSize=tileSize, tileThickness=tileThickness, anchor=anchor, orient=orient, corner1=Beam_Corners_X, corner2=Beam_Corners_X
+      );
   }
+
   module bottomYBeams() {
     color_this("green")
-      opengrid_beam(lengthUnits=Basket_Y_Units, tileSize=tileSize, tileThickness=tileThickness);
+      opengrid_beam(lengthUnits=Basket_Y_Units, tileSize=tileSize, tileThickness=tileThickness, corner1=Beam_Corners_Y, corner2=Beam_Corners_Y);
   }
 }
