@@ -11,7 +11,7 @@ openGrid uses a standardized 28mm grid with a snap connector spec that keeps acc
 | `parts/opengrid_beam.scad` | Corner beam for building basket frames |
 | `parts/opengrid_connector.scad` | Grid connector hardware |
 | `parts/opengrid_dual_sided_snap.scad` | Dual-sided snap connector for mounting objects to openGrid tiles |
-| `parts/opengrid_facade.scad` | Flat panel that snaps onto openGrid tiles for a finished look |
+| `parts/opengrid_facade.scad` | Flat panel that snaps onto openGrid tiles for a finished look ([docs](parts/opengrid_facade.md)) |
 
 ## Kits
 
