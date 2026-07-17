@@ -49,7 +49,15 @@ Beam_Corners_Z = "Flush"; // [Flush,Extended]
 tileSize = 28;
 basketLiteGrid = false;
 tileThickness = basketLiteGrid ? 3.4 : 6.8;
-connectorHoles = true;
+
+// openGrid.scad is pulled in via `use`, which imports modules/functions only
+// -- not top-level variable assignments. openGrid()'s connector-hole cutout
+// logic reads these four as free variables, so they must be declared here or
+// they're undef (falsy) and every panel silently gets zero connector holes.
+Connector_Holes_Right = true;
+Connector_Holes_Left = true;
+Connector_Holes_Top = true;
+Connector_Holes_Bottom = true;
 
 attach_to_lite_grid = Attach_to_grid_thickness == "Lite";
 
@@ -156,10 +164,10 @@ module basket(Basket_X_Units, Basket_Y_Units, Basket_Z_Units) {
       }
   }
 
-  module openGridWithDefaults(xUnits, yUnits, thickness, anchor = CENTER, connectorHoles = false, spin = 0) {
+  module openGridWithDefaults(xUnits, yUnits, thickness, anchor = CENTER, spin = 0) {
 
     attachable(size=[xUnits * tileSize, yUnits * tileSize, thickness], spin=spin) {
-      openGrid(Board_Width=xUnits, Board_Height=yUnits, tileSize=tileSize, Tile_Thickness=tileThickness, anchor=anchor, Connector_Holes=connectorHoles);
+      openGrid(Board_Width=xUnits, Board_Height=yUnits, tileSize=tileSize, Tile_Thickness=tileThickness, anchor=anchor, Connector_Holes=true);
       children();
     }
   }
