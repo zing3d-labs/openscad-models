@@ -47,7 +47,9 @@ All named measurements (offsets, distances, thicknesses) must be defined as posi
 
 ## External Libraries
 
-`external/` is shared across all systems. BOSL2 and QuackWorks are referenced via git submodules. Files use relative paths to import from `external/`.
+`external/` is shared across all systems. BOSL2, QuackWorks, and opengrid-projects (mitufy's openConnect connector library) are referenced via git submodules. Files use relative paths to import from `external/`.
+
+External libraries carry their own licenses, and some are more restrictive than others. Before depending on a new external file, check its license against the repository license and record the conclusion in the part's file header — see `opengrid/parts/opengrid_inbox.scad` for the pattern.
 
 ## Future
 

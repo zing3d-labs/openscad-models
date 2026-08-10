@@ -23,8 +23,9 @@ opengrid/         # openGrid modular mounting system
   parts/          # Individual parametric components
   kits/           # Multi-part assemblies
 external/
-  BOSL2/          # BOSL2 OpenSCAD library (BelfrySCAD)
-  QuackWorks/     # QuackWorks connector modules
+  BOSL2/              # BOSL2 OpenSCAD library (BelfrySCAD)
+  QuackWorks/         # QuackWorks connector modules
+  opengrid-projects/  # openConnect connector library (mitufy)
 ```
 
 ## Using the Models
@@ -36,3 +37,5 @@ See [ARCHITECTURE.md](ARCHITECTURE.md) for design conventions.
 ## License
 
 [CC BY-NC-SA 4.0](LICENSE)
+
+Models in this repository build on third-party libraries under their own terms. In particular, the openConnect connector library in `external/opengrid-projects/lib/` is by [mitufy](https://github.com/mitufy/opengrid-projects) under CC BY 4.0, and openGrid is by David D. Parts that mount via openConnect must credit both. Note that mitufy's holder, drawer, shelf, hook, label, and gadget *generators* are CC BY-SA 4.0 — deriving geometry from those would impose ShareAlike terms that conflict with this repository's license, so depend on the connector library only.
