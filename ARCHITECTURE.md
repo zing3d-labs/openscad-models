@@ -8,7 +8,7 @@ A parametric OpenSCAD module file. A part file:
 
 - Contains a `module foo(param1, param2, ...)` with all configuration exposed in its signature
 - Has Customizer-compatible variables at the top — the *curated public interface*, a deliberate subset of what the module accepts
-- Has a top-level render call at the bottom (e.g., `opengrid_dual_sided_snap();`) so the file renders as a preview in OpenSCAD and can be used as a build target directly
+- Has a top-level render call, placed after the Customizer variables and before the module definition (e.g., `dualSidedSnap(...);`), so the file renders as a preview in OpenSCAD and can be used as a build target directly. The call wires the Customizer variables to the module's named parameters, which is why it reads best directly below them — OpenSCAD hoists module definitions, so the module it calls may be defined further down the file.
 
 ### Kit
 
