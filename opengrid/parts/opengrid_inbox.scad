@@ -159,30 +159,6 @@ _paperSize =
   : Paper_Size == "A5" ? A5_SIZE
   : [Custom_Paper_Width, Custom_Paper_Height];
 
-openGridInbox(
-  paperWidth=_paperSize.x,
-  paperHeight=_paperSize.y,
-  paperClearance=Paper_Clearance,
-  pocketDepth=Pocket_Depth,
-  rakeAngle=Rake_Angle,
-  backHeight=Back_Height,
-  frontHeight=Front_Height,
-  cornerRounding=Corner_Rounding,
-  wallThickness=Wall_Thickness,
-  backThickness=Back_Thickness,
-  floorThickness=Floor_Thickness,
-  fingerCutoutStyle=Finger_Cutout_Style,
-  fingerCutoutWidth=Finger_Cutout_Width,
-  fingerCutoutDepth=Finger_Cutout_Depth,
-  mountHorizontalGrids=Mount_Horizontal_Grids,
-  mountVerticalGrids=Mount_Vertical_Grids,
-  mountVerticalAlignment=Mount_Vertical_Alignment,
-  slotPosition=Slot_Position,
-  slotLockDistribution=Slot_Lock_Distribution,
-  slotLockSide=Slot_Lock_Side,
-  slotEntryRampFlip=Slot_Entry_Ramp_Flip
-);
-
 // Wall-mounted paper inbox, mounted to openGrid by openConnect slots cut into
 // the back panel.
 //
@@ -381,3 +357,27 @@ module openGridInbox(
     children();
   }
 }
+
+openGridInbox(
+  paperWidth=_paperSize.x,
+  paperHeight=_paperSize.y,
+  paperClearance=Paper_Clearance,
+  pocketDepth=Pocket_Depth,
+  rakeAngle=Rake_Angle,
+  backHeight=Back_Height,
+  frontHeight=Front_Height,
+  cornerRounding=Corner_Rounding,
+  wallThickness=Wall_Thickness,
+  backThickness=Back_Thickness,
+  floorThickness=Floor_Thickness,
+  fingerCutoutStyle=Finger_Cutout_Style,
+  fingerCutoutWidth=Finger_Cutout_Width,
+  fingerCutoutDepth=Finger_Cutout_Depth,
+  mountHorizontalGrids=Mount_Horizontal_Grids,
+  mountVerticalGrids=Mount_Vertical_Grids,
+  mountVerticalAlignment=Mount_Vertical_Alignment,
+  slotPosition=Slot_Position,
+  slotLockDistribution=Slot_Lock_Distribution,
+  slotLockSide=Slot_Lock_Side,
+  slotEntryRampFlip=Slot_Entry_Ramp_Flip
+);
