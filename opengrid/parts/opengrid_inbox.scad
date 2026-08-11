@@ -40,18 +40,26 @@ include <../../external/opengrid-projects/lib/openconnect_lib.scad>
 
 /* [Paper] */
 
-// Sheet size the pocket is built around. Sets the interior width; the sheet
-// height only feeds the echoed summary of how much of a sheet stays visible.
+// Sheet size the pocket is built around. Drives the interior width, and the
+// panel heights via the percentages below.
 Paper_Size = "US Letter"; // [A4, US Letter, A5, Custom]
 
-// Sheet width in mm, used when Paper_Size is Custom
+// Which way the sheet sits in the pocket. Landscape swaps the two dimensions.
+Paper_Orientation = "Portrait"; // [Portrait, Landscape]
+
+// Sheet width in mm, used when Paper_Size is Custom. Give the portrait
+// dimensions; Paper_Orientation swaps them.
 Custom_Paper_Width = 215.9;
 
 // Sheet height in mm, used when Paper_Size is Custom
 Custom_Paper_Height = 279.4;
 
-// Extra interior width beyond the sheet, total across both sides, so sheets drop in freely
-Paper_Clearance = 4; // [0:0.5:20]
+// Extra interior width beyond the sheet, total across both sides, so sheets
+// drop in freely. With Snap_Width_To_Grid on this is only a lower bound - the
+// snap rounds up to a whole tile and the surplus becomes clearance. Watch the
+// echoed clearance figure: raising this past a tile boundary adds a full 28mm
+// of width. The default is 3 because it keeps portrait US Letter on 8 tiles.
+Paper_Clearance = 3; // [0:0.5:20]
 
 /* [Pocket Shape] */
 
@@ -61,11 +69,13 @@ Pocket_Depth = 25; // [5:1:80]
 // Outward rake of the front panel, measured from vertical, in degrees
 Rake_Angle = 12; // [0:1:35]
 
-// Height of the back panel, in mm. A multiple of 28 uses the openConnect grid exactly.
-Back_Height = 140; // [28:1:400]
+// Height of the back panel, as a percentage of the sheet height. Snapped to
+// whole tiles unless Snap_Height_To_Grid is off.
+Back_Height_Percent = 50; // [15:1:100]
 
-// Height of the front panel, in mm. Must be shorter than the back panel.
-Front_Height = 84; // [10:1:400]
+// Height of the front panel, as a percentage of the sheet height. Must be
+// enough below Back_Height_Percent for the side panels to taper.
+Front_Height_Percent = 30; // [5:1:95]
 
 // Rounding applied to the front and side panel silhouettes, in mm
 Corner_Rounding = 3; // [0:0.5:15]
@@ -93,6 +103,16 @@ Finger_Cutout_Width = 70; // [10:1:250]
 Finger_Cutout_Depth = 22; // [2:1:100]
 
 /* [openConnect Mount] */
+
+// Round the outer width UP to a whole 28mm tile, so the slot grid reaches the
+// side edges instead of leaving a partial tile unused. Rounding up rather than
+// to nearest keeps the pocket from ever pinching the sheet; the added width
+// becomes extra paper clearance.
+Snap_Width_To_Grid = true;
+
+// Round the back panel height to the nearest whole 28mm tile, so the slot grid
+// reaches the top and bottom edges.
+Snap_Height_To_Grid = true;
 
 // Slot columns across the back panel. 0 fits as many as the width allows.
 Mount_Horizontal_Grids = 0; // [0:1:20]
@@ -153,11 +173,16 @@ A5_SIZE = [148, 210];
 // Solid material kept behind the deepest point of an openConnect slot.
 MIN_BACK_WALL = 0.8;
 
-_paperSize =
+// Presets are stated portrait; Landscape swaps them.
+_portraitSize =
   Paper_Size == "A4" ? A4_SIZE
   : Paper_Size == "US Letter" ? US_LETTER_SIZE
   : Paper_Size == "A5" ? A5_SIZE
   : [Custom_Paper_Width, Custom_Paper_Height];
+
+_paperSize = Paper_Orientation == "Landscape"
+  ? [_portraitSize.y, _portraitSize.x]
+  : _portraitSize;
 
 openGridInbox(
   paperWidth=_paperSize.x,
@@ -165,8 +190,8 @@ openGridInbox(
   paperClearance=Paper_Clearance,
   pocketDepth=Pocket_Depth,
   rakeAngle=Rake_Angle,
-  backHeight=Back_Height,
-  frontHeight=Front_Height,
+  backHeightPercent=Back_Height_Percent,
+  frontHeightPercent=Front_Height_Percent,
   cornerRounding=Corner_Rounding,
   wallThickness=Wall_Thickness,
   backThickness=Back_Thickness,
@@ -174,6 +199,8 @@ openGridInbox(
   fingerCutoutStyle=Finger_Cutout_Style,
   fingerCutoutWidth=Finger_Cutout_Width,
   fingerCutoutDepth=Finger_Cutout_Depth,
+  snapWidthToGrid=Snap_Width_To_Grid,
+  snapHeightToGrid=Snap_Height_To_Grid,
   mountHorizontalGrids=Mount_Horizontal_Grids,
   mountVerticalGrids=Mount_Vertical_Grids,
   mountVerticalAlignment=Mount_Vertical_Alignment,
@@ -200,8 +227,8 @@ module openGridInbox(
   paperClearance = 4,
   pocketDepth = 25,
   rakeAngle = 12,
-  backHeight = 140,
-  frontHeight = 84,
+  backHeightPercent = 50,
+  frontHeightPercent = 30,
   cornerRounding = 3,
   wallThickness = 2.4,
   backThickness = 4,
@@ -209,6 +236,8 @@ module openGridInbox(
   fingerCutoutStyle = "Scallop",
   fingerCutoutWidth = 70,
   fingerCutoutDepth = 22,
+  snapWidthToGrid = true,
+  snapHeightToGrid = true,
   mountHorizontalGrids = 0,
   mountVerticalGrids = 0,
   mountVerticalAlignment = "Center",
@@ -222,8 +251,21 @@ module openGridInbox(
 
   slotHeight = struct_val(ocslot_cfg(), "total_height");
 
-  interior_width = paperWidth + paperClearance;
-  outer_width = interior_width + 2 * wallThickness;
+  // Snapping lands the panel on whole tiles so the slot grid reaches its edges
+  // with nothing left over. Width rounds UP - rounding down would eat into the
+  // paper clearance and could pinch the sheet - so any added width becomes
+  // extra clearance. Height rounds to nearest, since nothing constrains it.
+  natural_outer_width = paperWidth + paperClearance + 2 * wallThickness;
+  outer_width = snapWidthToGrid
+    ? OG_TILE_SIZE * max(1, ceil(natural_outer_width / OG_TILE_SIZE))
+    : natural_outer_width;
+  interior_width = outer_width - 2 * wallThickness;
+
+  natural_back_height = paperHeight * backHeightPercent / 100;
+  backHeight = snapHeightToGrid
+    ? OG_TILE_SIZE * max(1, round(natural_back_height / OG_TILE_SIZE))
+    : natural_back_height;
+  frontHeight = paperHeight * frontHeightPercent / 100;
 
   // Depths are measured forward from the wall plane, and are all positive.
   // The minus sign is applied at the call site, since the model occupies -Y.
@@ -235,7 +277,9 @@ module openGridInbox(
   total_depth = front_outer_top_depth;
 
   assert(backHeight > frontHeight + cornerRounding,
-    "Back_Height must exceed Front_Height by at least Corner_Rounding, so the side panels can taper.");
+    str("Back_Height_Percent must exceed Front_Height_Percent by enough to clear Corner_Rounding (",
+      cornerRounding, "mm on a ", paperHeight, "mm sheet is ",
+      100 * cornerRounding / paperHeight, "%), so the side panels can taper."));
   assert(backThickness >= slotHeight + MIN_BACK_WALL,
     str("Back_Thickness must be at least ", slotHeight + MIN_BACK_WALL,
       "mm to contain the openConnect slots plus a solid backing wall."));
@@ -250,12 +294,17 @@ module openGridInbox(
   h_grids = mountHorizontalGrids > 0 ? mountHorizontalGrids : floor(outer_width / OG_TILE_SIZE);
   v_grids = mountVerticalGrids > 0 ? mountVerticalGrids : floor(backHeight / OG_TILE_SIZE);
   assert(h_grids >= 1 && v_grids >= 1,
-    "The back panel is too small for a single openConnect tile (28mm); enlarge the paper size or Back_Height.");
+    "The back panel is too small for a single openConnect tile (28mm); enlarge the paper size or Back_Height_Percent.");
 
   echo(str(
-    "opengrid_inbox: ", outer_width, " x ", total_depth, " x ", backHeight, "mm, ",
-    h_grids, "x", v_grids, " openConnect tiles, ",
-    paperHeight - frontHeight, "mm of a ", paperHeight, "mm sheet visible above the front panel."
+    "opengrid_inbox: ", outer_width, " x ", total_depth, " x ", backHeight, "mm outer, ",
+    "front panel ", frontHeight, "mm, ",
+    h_grids, "x", v_grids, " openConnect tiles leaving ",
+    outer_width - h_grids * OG_TILE_SIZE, "mm width and ",
+    backHeight - v_grids * OG_TILE_SIZE, "mm height unused by the grid. ",
+    "Sheet ", paperWidth, " x ", paperHeight, "mm sits in a ", interior_width,
+    "mm pocket (", interior_width - paperWidth, "mm clearance) with ",
+    paperHeight - frontHeight, "mm visible above the front panel."
   ));
 
   grid_height = v_grids * OG_TILE_SIZE;

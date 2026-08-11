@@ -7,12 +7,12 @@ A wall-mounted paper, envelope, and file inbox that hangs on an openGrid wall us
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
 | `paperWidth` | float | 215.9 | Sheet width in mm; sets the interior width |
-| `paperHeight` | float | 279.4 | Sheet height in mm; only feeds the echoed summary |
-| `paperClearance` | float | 4 | Extra interior width beyond the sheet, total across both sides |
+| `paperHeight` | float | 279.4 | Sheet height in mm; sets both panel heights via the percentages below |
+| `paperClearance` | float | 3 | Extra interior width beyond the sheet, total across both sides; a lower bound when width snapping is on |
 | `pocketDepth` | float | 25 | Interior depth at the floor — the stack capacity |
 | `rakeAngle` | float | 12 | Outward lean of the front panel, degrees from vertical |
-| `backHeight` | float | 140 | Height of the back panel in mm |
-| `frontHeight` | float | 84 | Height of the front panel in mm; must be shorter than `backHeight` |
+| `backHeightPercent` | float | 51 | Back panel height as a percentage of `paperHeight` |
+| `frontHeightPercent` | float | 30 | Front panel height as a percentage of `paperHeight`; must be enough below `backHeightPercent` to clear `cornerRounding` |
 | `cornerRounding` | float | 3 | Rounding on the front and side panel silhouettes |
 | `wallThickness` | float | 2.4 | Thickness of the front and side panels |
 | `backThickness` | float | 4 | Thickness of the back panel; must contain the openConnect slots |
@@ -20,6 +20,8 @@ A wall-mounted paper, envelope, and file inbox that hangs on an openGrid wall us
 | `fingerCutoutStyle` | string | `"Scallop"` | Grab cutout shape: `"Scallop"`, `"Notch"`, or `"None"` |
 | `fingerCutoutWidth` | float | 70 | Width of the grab cutout |
 | `fingerCutoutDepth` | float | 22 | How far the cutout reaches down from the front panel top edge |
+| `snapWidthToGrid` | bool | true | Round the outer width up to a whole 28mm tile |
+| `snapHeightToGrid` | bool | true | Round the back panel height to the nearest whole 28mm tile |
 | `mountHorizontalGrids` | int | 0 | Slot columns; `0` fits as many whole tiles as the width allows |
 | `mountVerticalGrids` | int | 0 | Slot rows; `0` fits as many whole tiles as the height allows |
 | `mountVerticalAlignment` | string | `"Center"` | Where the grid sits in the leftover height: `"Center"`, `"Top"`, `"Bottom"` |
@@ -31,9 +33,16 @@ A wall-mounted paper, envelope, and file inbox that hangs on an openGrid wall us
 
 ## Sizing
 
-`paperWidth` drives the interior width; `backHeight` and `frontHeight` are absolute millimetres, so a paper-size change never silently resizes the pocket. The `Paper_Size` Customizer preset (A4 / US Letter / A5 / Custom) only sets `paperWidth` and `paperHeight`.
+The sheet drives everything. `paperWidth` sets the interior width; both panel heights are percentages of `paperHeight`. The `Paper_Size` Customizer preset (A4 / US Letter / A5 / Custom) sets the pair, and `Paper_Orientation` swaps them — presets are stated portrait, so Landscape gives a wide, short pocket for sheets on their side.
 
-A `backHeight` that is a multiple of 28 uses the openConnect grid exactly, with no leftover. The defaults — US Letter, 140mm back — give an 8 × 5 tile grid on a 224.7 × 49.3 × 140mm part, leaving 195mm of a Letter sheet visible above the front panel. The rendered part echoes this summary.
+Panel dimensions are then snapped to the 28mm openConnect tile so the slot grid reaches the panel edges with nothing left over:
+
+- **Width rounds up.** Rounding to nearest could shrink the pocket and pinch the sheet, so the surplus becomes extra clearance instead. This makes `paperClearance` a *lower bound* — raising it past a tile boundary adds a full 28mm of width in one step. Watch the echoed clearance figure.
+- **Height rounds to nearest**, since nothing constrains it.
+
+Both can be turned off with `snapWidthToGrid` / `snapHeightToGrid`, which gives exact percentage-derived dimensions and a grid that leaves a partial tile unused.
+
+At the defaults — US Letter portrait, 50% back, 30% front — that is a 224 × 49.3 × 140mm part with a full 8 × 5 tile grid, a 219.2mm pocket (3.3mm clearance), and 195.6mm of the sheet visible above the front panel. The rendered part echoes all of this.
 
 ## Orientation
 
