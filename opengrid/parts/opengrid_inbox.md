@@ -1,6 +1,6 @@
 # opengrid_inbox.scad
 
-A wall-mounted paper, envelope, and file inbox that hangs on an openGrid wall using openConnect slots cut into its back panel. The pocket is a wedge — a tall back panel flat against the wall, a shorter front panel raked outward so sheets lean back and stay readable, closed at the sides by tapering panels, with a finger cutout in the front edge so a stack can be grabbed. Panels can optionally be perforated with a hex honeycomb or a square lattice. The module is BOSL2-attachable.
+A wall-mounted paper, envelope, and file inbox that hangs on an openGrid wall using openConnect slots cut into its back panel. The pocket is a wedge — a tall back panel flat against the wall, a shorter front panel raked outward so sheets lean back and stay readable, closed at the sides by tapering panels, with a finger cutout in the front edge so a stack can be grabbed. The front and side panels are perforated with a hex honeycomb by default; a square lattice and a fully solid variant are also available. The module is BOSL2-attachable.
 
 ## Parameters
 
@@ -9,17 +9,17 @@ A wall-mounted paper, envelope, and file inbox that hangs on an openGrid wall us
 | `paperWidth` | float | 215.9 | Sheet width in mm; sets the interior width |
 | `paperHeight` | float | 279.4 | Sheet height in mm; sets both panel heights via the percentages below |
 | `paperClearance` | float | 3 | Extra interior width beyond the sheet, total across both sides; a lower bound when width snapping is on |
-| `pocketDepth` | float | 25 | Interior depth at the floor — the stack capacity |
+| `pocketDepth` | float | 50 | Interior depth at the floor — the stack capacity |
 | `rakeAngle` | float | 12 | Outward lean of the front panel, degrees from vertical |
-| `backHeightPercent` | float | 50 | Back panel height as a percentage of `paperHeight` |
-| `frontHeightPercent` | float | 30 | Front panel height as a percentage of `paperHeight`; must be shorter than the back panel |
+| `backHeightPercent` | float | 80 | Back panel height as a percentage of `paperHeight` |
+| `frontHeightPercent` | float | 55 | Front panel height as a percentage of `paperHeight`; must be shorter than the back panel |
 | `wallThickness` | float | 2.4 | Thickness of the front and side panels |
 | `backThickness` | float | 4 | Thickness of the back panel; must contain the openConnect slots |
 | `floorThickness` | float | 2.4 | Thickness of the pocket floor |
-| `fingerCutoutStyle` | string | `"Scallop"` | Grab cutout shape: `"Scallop"`, `"Notch"`, or `"None"` |
+| `fingerCutoutStyle` | string | `"Notch"` | Grab cutout shape: `"Scallop"`, `"Notch"`, or `"None"` |
 | `fingerCutoutWidth` | float | 70 | Width of the grab cutout |
 | `fingerCutoutDepth` | float | 22 | How far the cutout reaches down from the front panel top edge |
-| `perforationPattern` | string | `"None"` | Pattern cut through the panels: `"None"`, `"Hex"`, or `"Square"` |
+| `perforationPattern` | string | `"Hex"` | Pattern cut through the panels: `"None"`, `"Hex"`, or `"Square"` |
 | `perforationCellSize` | float | 12 | One cell across the flats (hex) or on a side (square) |
 | `perforationWallThickness` | float | 2 | Material left between neighbouring cells |
 | `perforationBorder` | float | 8 | Solid margin around every perforated area |
@@ -48,11 +48,13 @@ Panel dimensions are then snapped to the 28mm openConnect tile so the slot grid 
 
 Both can be turned off with `snapWidthToGrid` / `snapHeightToGrid`, which gives exact percentage-derived dimensions and a grid that leaves a partial tile unused.
 
-At the defaults — US Letter portrait, 50% back, 30% front — that is a 224 × 49.3 × 140mm part with a full 8 × 5 tile grid, a 219.2mm pocket (3.3mm clearance), and 195.6mm of the sheet visible above the front panel. The rendered part echoes all of this.
+At the defaults — US Letter portrait, 80% back, 55% front — that is a 224 × 89.1 × 224mm part with a full 8 × 8 tile grid, a 219.2mm pocket (3.3mm clearance), and 125.7mm of the sheet visible above the front panel. The rendered part echoes all of this.
+
+That full 8 × 8 grid is 64 slots, which is more than OpenSCAD's preview can flatten — F5 shows an empty tree and warns that CSG normalization was aborted. **Render with F6 instead**, which uses CGAL and is unaffected. This is a limit in the preview pipeline, not a problem with the part: the render, the exported STL and any build target are all correct. A sparser `slotPosition`, or fewer `mountVerticalGrids`, brings F5 back if you want it.
 
 ## Perforation
 
-`perforationPattern` cuts a hex honeycomb or a square lattice through the panel faces. It defaults to `"None"`, which leaves the part solid and byte-for-byte identical to what it rendered before perforation existed. `perforationCellSize` sets the cell — measured across the flats for hex, on a side for square — and `perforationWallThickness` the material left between neighbouring cells.
+`perforationPattern` cuts a hex honeycomb or a square lattice through the panel faces, and defaults to `"Hex"`. Setting it to `"None"` leaves every panel solid. `perforationCellSize` sets the cell — measured across the flats for hex, on a side for square — and `perforationWallThickness` the material left between neighbouring cells.
 
 Each panel is switched independently. The front and sides default on; **the back defaults off**, because the back plate is what carries the mount. Where the back *is* perforated, the openConnect slot grid keeps a solid keep-out around it, so every slot retains its continuous backing wall. With grid snapping on (the default) the slot grid covers the back panel edge to edge and that keep-out leaves no perforatable area at all — turning `perforateBack` on then cuts nothing, and the model echoes a note saying so. To open up area outside the grid, lower `mountHorizontalGrids` / `mountVerticalGrids` or turn the snapping off.
 
@@ -68,7 +70,7 @@ If the border swallows a panel entirely, that panel simply comes out solid rathe
 
 Masking a cell field inevitably slices some cells at a shallow angle — most visibly along the side panels' diagonal taper. The fragments left behind can be far too narrow to print, so the pattern is opened (eroded, then dilated by the same amount) to delete any hole narrower than `perforationWallThickness`. That threshold is the pattern's own minimum gap, so nothing in the part ends up thinner than the design already asks for. Cells clear of the mask survive with their corners rounded to that radius, which prints better than a sharp one.
 
-At the defaults — US Letter portrait, hex, 12mm cells, 2mm walls, 8mm border, front and sides only — this removes about 17% of the part's material. The square lattice at the same settings removes roughly the same.
+At the defaults — US Letter portrait, hex, 12mm cells, 2mm walls, 8mm border, front and sides only — this removes about 25% of the part's material, 306cm³ down to 229cm³. The square lattice at the same settings removes roughly the same.
 
 ## Orientation
 

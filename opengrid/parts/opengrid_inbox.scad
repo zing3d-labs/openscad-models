@@ -64,18 +64,18 @@ Paper_Clearance = 3; // [0:0.5:20]
 /* [Pocket Shape] */
 
 // Interior depth of the pocket at the floor - the paper stack capacity, in mm
-Pocket_Depth = 25; // [5:1:80]
+Pocket_Depth = 50; // [5:1:80]
 
 // Outward rake of the front panel, measured from vertical, in degrees
 Rake_Angle = 12; // [0:1:35]
 
 // Height of the back panel, as a percentage of the sheet height. Snapped to
 // whole tiles unless Snap_Height_To_Grid is off.
-Back_Height_Percent = 50; // [15:1:100]
+Back_Height_Percent = 80; // [15:1:100]
 
 // Height of the front panel, as a percentage of the sheet height. Must be
 // enough below Back_Height_Percent for the side panels to taper.
-Front_Height_Percent = 30; // [5:1:95]
+Front_Height_Percent = 55; // [5:1:95]
 
 /* [Thickness] */
 
@@ -91,7 +91,7 @@ Floor_Thickness = 2.4; // [1.2:0.2:6]
 /* [Finger Cutout] */
 
 // Shape of the grab cutout in the top edge of the front panel
-Finger_Cutout_Style = "Scallop"; // [Scallop, Notch, None]
+Finger_Cutout_Style = "Notch"; // [Scallop, Notch, None]
 
 // Width of the cutout, in mm
 Finger_Cutout_Width = 70; // [10:1:250]
@@ -102,7 +102,7 @@ Finger_Cutout_Depth = 22; // [2:1:100]
 /* [Perforation] */
 
 // Pattern cut through the panel faces. None leaves every panel solid.
-Perforation_Pattern = "None"; // [None, Hex, Square]
+Perforation_Pattern = "Hex"; // [None, Hex, Square]
 
 // Size of one cell - across the flats for hex, the side length for square - in mm
 Perforation_Cell_Size = 12; // [4:0.5:40]
@@ -239,17 +239,17 @@ module openGridInbox(
   paperWidth = 215.9,
   paperHeight = 279.4,
   paperClearance = 3,
-  pocketDepth = 25,
+  pocketDepth = 50,
   rakeAngle = 12,
-  backHeightPercent = 50,
-  frontHeightPercent = 30,
+  backHeightPercent = 80,
+  frontHeightPercent = 55,
   wallThickness = 2.4,
   backThickness = 4,
   floorThickness = 2.4,
-  fingerCutoutStyle = "Scallop",
+  fingerCutoutStyle = "Notch",
   fingerCutoutWidth = 70,
   fingerCutoutDepth = 22,
-  perforationPattern = "None",
+  perforationPattern = "Hex",
   perforationCellSize = 12,
   perforationWallThickness = 2,
   perforationBorder = 8,
