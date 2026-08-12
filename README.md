@@ -24,7 +24,7 @@ opengrid/         # openGrid modular mounting system
   kits/           # Multi-part assemblies
 external/
   BOSL2/              # BOSL2 OpenSCAD library (BelfrySCAD)
-  QuackWorks/         # QuackWorks connector modules
+  QuackWorks/         # QuackWorks connector modules (pinned to a fork — see ARCHITECTURE.md)
   opengrid-projects/  # openConnect connector library (mitufy)
 ```
 
