@@ -99,6 +99,35 @@ Finger_Cutout_Width = 70; // [10:1:250]
 // How far the cutout reaches down from the front panel top edge, in mm
 Finger_Cutout_Depth = 22; // [2:1:100]
 
+/* [Perforation] */
+
+// Pattern cut through the panel faces. None leaves every panel solid.
+Perforation_Pattern = "None"; // [None, Hex, Square]
+
+// Size of one cell - across the flats for hex, the side length for square - in mm
+Perforation_Cell_Size = 12; // [4:0.5:40]
+
+// Material left between neighbouring cells, in mm
+Perforation_Wall_Thickness = 2; // [0.8:0.2:8]
+
+// Solid margin kept around every perforated area, in mm. Measured from the
+// panel's own edges and from each joint it makes - the floor, the neighbouring
+// panels, the finger cutout, and the openConnect slot grid. This is structural,
+// not cosmetic: perforating to the edge weakens the panel exactly where the
+// mount and the corners take load.
+Perforation_Border = 8; // [0:0.5:40]
+
+// Perforate the back panel. Off by default because the back plate carries the
+// mount, and with grid snapping on the slot grid covers it edge to edge - there
+// is nothing left that is safe to cut away.
+Perforate_Back = false;
+
+// Perforate the raked front panel
+Perforate_Front = true;
+
+// Perforate the tapering side panels
+Perforate_Sides = true;
+
 /* [openConnect Mount] */
 
 // Round the outer width UP to a whole 28mm tile, so the slot grid reaches the
@@ -147,6 +176,10 @@ A5_SIZE = [148, 210];
 // Solid material kept behind the deepest point of an openConnect slot.
 MIN_BACK_WALL = 0.8;
 
+// How far a perforation cutter is pushed past the panel it cuts, so the hole
+// breaks cleanly through both faces instead of leaving a coincident surface.
+CUT_OVERSHOOT = 1;
+
 // Presets are stated portrait; Landscape swaps them.
 _portraitSize =
   Paper_Size == "A4" ? A4_SIZE
@@ -172,6 +205,13 @@ openGridInbox(
   fingerCutoutStyle=Finger_Cutout_Style,
   fingerCutoutWidth=Finger_Cutout_Width,
   fingerCutoutDepth=Finger_Cutout_Depth,
+  perforationPattern=Perforation_Pattern,
+  perforationCellSize=Perforation_Cell_Size,
+  perforationWallThickness=Perforation_Wall_Thickness,
+  perforationBorder=Perforation_Border,
+  perforateBack=Perforate_Back,
+  perforateFront=Perforate_Front,
+  perforateSides=Perforate_Sides,
   snapWidthToGrid=Snap_Width_To_Grid,
   snapHeightToGrid=Snap_Height_To_Grid,
   mountHorizontalGrids=Mount_Horizontal_Grids,
@@ -190,10 +230,11 @@ openGridInbox(
 // lies in the plane Y = 0 and the pocket hangs out toward -Y. +Z is up.
 //
 // Panel geometry is kept in one submodule per panel (backPanel, floorPanel,
-// frontPanel, sidePanels) so a later perforation pass can mask individual
-// faces without restructuring the assembly. The mount is likewise isolated in
-// mountSlots(), so an alternative mounting system can be added alongside it
-// without touching the pocket.
+// frontPanel, sidePanels), and the optional perforation of each face is a
+// separate masked pass over the assembled solid rather than something baked
+// into the panels. The mount is likewise isolated in mountSlots(), so an
+// alternative mounting system can be added alongside it without touching the
+// pocket.
 module openGridInbox(
   paperWidth = 215.9,
   paperHeight = 279.4,
@@ -208,6 +249,13 @@ module openGridInbox(
   fingerCutoutStyle = "Scallop",
   fingerCutoutWidth = 70,
   fingerCutoutDepth = 22,
+  perforationPattern = "None",
+  perforationCellSize = 12,
+  perforationWallThickness = 2,
+  perforationBorder = 8,
+  perforateBack = false,
+  perforateFront = true,
+  perforateSides = true,
   snapWidthToGrid = true,
   snapHeightToGrid = true,
   mountHorizontalGrids = 0,
@@ -259,6 +307,12 @@ module openGridInbox(
     "Finger_Cutout_Width must be narrower than the pocket interior.");
   assert(fingerCutoutStyle == "None" || fingerCutoutDepth < frontHeight - floorThickness,
     "Finger_Cutout_Depth must not reach the pocket floor.");
+  assert(perforationPattern == "None" || perforationCellSize > 0,
+    "Perforation_Cell_Size must be greater than zero.");
+  assert(perforationPattern == "None" || perforationWallThickness > 0,
+    "Perforation_Wall_Thickness must be greater than zero, or the cells would merge into one hole.");
+  assert(perforationBorder >= 0,
+    "Perforation_Border must not be negative.");
 
   // Slot grid, sized to whatever whole tiles fit unless overridden.
   h_grids = mountHorizontalGrids > 0 ? mountHorizontalGrids : floor(outer_width / OG_TILE_SIZE);
@@ -283,6 +337,60 @@ module openGridInbox(
     : mountVerticalAlignment == "Bottom" ? grid_height / 2
     : backHeight / 2;
 
+  // Perforation. Every panel's perforatable area is inset by perforationBorder
+  // from the panel's own edges AND from each joint it makes, so no hole lands
+  // on a corner, on the floor seam, or behind the mount. The horizontal span is
+  // the same for the back and front panels: both run the full outer width and
+  // both are joined by the side panels along their outer edges.
+  perforating = perforationPattern != "None";
+  perf_pitch = perforationCellSize + perforationWallThickness;
+  perf_width = outer_width - 2 * wallThickness - 2 * perforationBorder;
+  perf_z_lo = floorThickness + perforationBorder;
+
+  back_perf_z_hi = backHeight - perforationBorder;
+  front_perf_z_hi = frontHeight - perforationBorder;
+
+  // Solid keep-out over the slot grid, so the back panel keeps a continuous
+  // backing wall behind every slot. Sizing it from the nominal tile footprint
+  // is sound because openconnect_slot_grid() clips its own output to exactly
+  // that footprint - no slot, nub or entry ramp can reach outside it - so the
+  // border is clearance on top of a hard boundary, not a guess at one.
+  grid_keepout_width = h_grids * OG_TILE_SIZE + 2 * perforationBorder;
+  grid_keepout_height = grid_height + 2 * perforationBorder;
+
+  // The back panel can only be perforated where something is left outside the
+  // keep-out - a strip beside the grid, or a band above or below it.
+  back_perf_possible = perf_width > 0 && back_perf_z_hi > perf_z_lo && (
+    perf_width > grid_keepout_width
+    || back_perf_z_hi > grid_center_z + grid_keepout_height / 2
+    || perf_z_lo < grid_center_z - grid_keepout_height / 2
+  );
+
+  perf_panels = [
+    if (perforateBack) "back",
+    if (perforateFront) "front",
+    if (perforateSides) "sides"
+  ];
+
+  if (perforating)
+    echo(str(
+      "opengrid_inbox: ", perforationPattern, " perforation, ",
+      perforationCellSize, "mm cells on a ", perf_pitch, "mm pitch with a ",
+      perforationBorder, "mm solid border, ",
+      len(perf_panels) > 0
+        ? str("on the ", str_join(perf_panels, ", "), ".")
+        : "but no panel is selected, so nothing is cut."
+    ));
+
+  if (perforating && perforateBack && !back_perf_possible)
+    echo(str(
+      "opengrid_inbox: Perforate_Back is on but the ", h_grids, "x", v_grids,
+      " slot grid plus its ", perforationBorder,
+      "mm border covers the whole back panel, so no holes are cut there. ",
+      "Lower Mount_Horizontal_Grids / Mount_Vertical_Grids, or turn off ",
+      "Snap_Width_To_Grid / Snap_Height_To_Grid, to open up area outside the grid."
+    ));
+
   // Silhouette of one side panel, seen from the side, as [y, z] pairs.
   side_profile = [
     [0, 0],
@@ -298,6 +406,19 @@ module openGridInbox(
     [-front_outer_bottom_depth, 0],
     [-front_outer_top_depth, frontHeight],
     [-front_inner_top_depth, frontHeight],
+  ];
+
+  // The part of one side panel that belongs to it alone - the silhouette above
+  // with the back plate, the floor slab and the front panel taken out of it.
+  // Every edge of this polygon is either a free edge of the panel or a joint
+  // with another panel, so insetting the whole thing by perforationBorder is
+  // all the masking the side panels need.
+  side_inner_profile = [
+    [-backThickness, floorThickness],
+    [-front_inner_bottom_depth, floorThickness],
+    [-front_inner_top_depth, frontHeight],
+    [-front_outer_top_depth, frontHeight],
+    [-backThickness, backHeight],
   ];
 
   // Extrudes a [y, z] profile along X, centered on the origin.
@@ -330,24 +451,145 @@ module openGridInbox(
   // Grab cutout in the top edge of the front panel. Extruded along Y so the
   // shape reads true from the front despite the rake, and bounded in Y so it
   // never reaches the back panel.
-  module fingerCutout() {
+  //
+  // `grow` swells the shape by that distance in every in-plane direction,
+  // which is how the perforation pass keeps its holes clear of the cutout.
+  module fingerCutout(grow = 0) {
     cut_length = total_depth - front_inner_bottom_depth + 2;
     cut_center_depth = front_inner_bottom_depth + cut_length / 2 - 1;
 
     if (fingerCutoutStyle == "Scallop") {
       // Radius of the circle whose chord is the cutout width at the cutout depth.
       scallop_radius = fingerCutoutDepth / 2 + pow(fingerCutoutWidth, 2) / (8 * fingerCutoutDepth);
+      // Growing the radius about the same centre offsets the arc by `grow`.
       fwd(cut_center_depth) up(frontHeight - fingerCutoutDepth + scallop_radius)
-        xrot(90) cyl(r=scallop_radius, h=cut_length);
+        xrot(90) cyl(r=scallop_radius + grow, h=cut_length);
     } else if (fingerCutoutStyle == "Notch") {
       notch_rounding = min(fingerCutoutWidth / 4, fingerCutoutDepth / 2);
+      // Anchored at the top, so adding `grow` to the height lowers the floor of
+      // the notch by exactly `grow` while its open top stays put.
       fwd(cut_center_depth) up(frontHeight + fingerCutoutDepth)
         cuboid(
-          [fingerCutoutWidth, cut_length, 2 * fingerCutoutDepth],
-          rounding=notch_rounding,
+          [fingerCutoutWidth + 2 * grow, cut_length, 2 * fingerCutoutDepth + grow],
+          rounding=notch_rounding + grow,
           edges=[BOTTOM + LEFT, BOTTOM + RIGHT],
           anchor=TOP
         );
+    }
+  }
+
+  // A 2D field of cells, filling a spanX by spanY area centred on the origin.
+  // Generated in the XY plane so linear_extrude can turn it into a cutter that
+  // is then rotated onto whichever panel face is being perforated.
+  module patternField(spanX, spanY) {
+    if (perforationPattern == "Hex") {
+      // Circumradius that puts the flats perforationCellSize apart. Neighbours
+      // sit perf_pitch away in all six directions, so every wall between two
+      // cells comes out at perforationWallThickness.
+      hex_radius = perforationCellSize / sqrt(3);
+      column_spacing = perf_pitch * sqrt(3) / 2;
+      columns = ceil(spanX / (2 * column_spacing)) + 1;
+      rows = ceil(spanY / (2 * perf_pitch)) + 1;
+      for (i = [-columns : columns], j = [-rows : rows])
+        // Dropping every other column by half a cell is what interlocks the
+        // columns into a honeycomb rather than stacking them in line.
+        translate([i * column_spacing, j * perf_pitch + (i % 2 == 0 ? 0 : perf_pitch / 2)])
+          circle(r=hex_radius, $fn=6);
+    } else if (perforationPattern == "Square") {
+      columns = ceil(spanX / (2 * perf_pitch)) + 1;
+      rows = ceil(spanY / (2 * perf_pitch)) + 1;
+      // Corners are rounded rather than square - a sharp internal corner is
+      // where a thin panel under load starts to tear.
+      for (i = [-columns : columns], j = [-rows : rows])
+        translate([i * perf_pitch, j * perf_pitch])
+          rect(perforationCellSize, rounding=perforationCellSize / 6);
+    }
+  }
+
+  // Each panel's cutter is built by masking the cell field in 2D and only then
+  // extruding it through the panel. Masking in 3D instead would leave OpenSCAD
+  // holding an intersection of hundreds of separate solids: correct, but it
+  // overruns the preview normalizer's node budget and F5 renders nothing.
+  // Feeding a 2D subtree to linear_extrude collapses it to one polygon first,
+  // so each panel contributes a single leaf to the CSG tree.
+
+  // Masking a cell field always slices some cells at a shallow angle, leaving
+  // crescents too narrow to print - the slicer turns them into ragged single
+  // extrusions or drops them. Opening the field (erode, then dilate by the same
+  // amount) deletes every hole narrower than the wall between cells, which is
+  // the natural threshold here: no gap in the part ends up thinner than the
+  // thinnest gap the pattern already asks for. Cells clear of the mask survive
+  // with only their corners rounded to that radius, which prints better anyway.
+  module withoutSlivers() {
+    offset(r=perforationWallThickness / 2)
+      offset(r=-perforationWallThickness / 2)
+        children();
+  }
+
+  // Back panel. What is left after the side panels, the floor, the top edge and
+  // the slot grid have each taken their margin - often nothing at all, which is
+  // why Perforate_Back defaults off.
+  module backPerforation() {
+    perf_height = back_perf_z_hi - perf_z_lo;
+    center_z = (perf_z_lo + back_perf_z_hi) / 2;
+
+    if (back_perf_possible)
+      fwd(backThickness / 2) up(center_z) xrot(90)
+        linear_extrude(height=backThickness + 2 * CUT_OVERSHOOT, center=true)
+          withoutSlivers() intersection() {
+            difference() {
+              rect([perf_width, perf_height]);
+              back(grid_center_z - center_z)
+                rect([grid_keepout_width, grid_keepout_height]);
+            }
+            patternField(perf_width, perf_height);
+          }
+  }
+
+  // Front panel. Masked in the panel's own tilted plane, so the window is a
+  // plain rectangle - perf_width across, and the height band measured along the
+  // rake rather than vertically. The finger cutout is the one mask that has to
+  // come off in 3D, since its cylinder meets the raked face as an ellipse.
+  module frontPerforation() {
+    perf_height = front_perf_z_hi - perf_z_lo;
+    center_z = (perf_z_lo + front_perf_z_hi) / 2;
+    face_length = perf_height / cos(rakeAngle);
+
+    if (perf_width > 0 && perf_height > 0)
+      difference() {
+        // Centred on the middle of the slab and tilted into the rake, so the
+        // cells sit square to the panel rather than to the world.
+        fwd(front_inner_bottom_depth + center_z * tan(rakeAngle) + front_slab_run / 2)
+          up(center_z) xrot(90 + rakeAngle)
+            linear_extrude(height=wallThickness + 2 * CUT_OVERSHOOT, center=true)
+              withoutSlivers() intersection() {
+                rect([perf_width, face_length]);
+                patternField(perf_width, face_length);
+              }
+        fingerCutout(grow=perforationBorder);
+      }
+  }
+
+  // Side panels. side_inner_profile already excludes every neighbouring panel,
+  // so one uniform 2D inset does all the masking.
+  module sidePerforation() {
+    xcopies(spacing=outer_width - wallThickness, n=2)
+      rotate([90, 0, 90])
+        linear_extrude(height=wallThickness + 2 * CUT_OVERSHOOT, center=true)
+          withoutSlivers() intersection() {
+            offset(r=-perforationBorder) polygon(side_inner_profile);
+            // The profile lives in -Y and +Z, so the field is shifted off the
+            // origin to sit centred on the panel rather than on its corner.
+            translate([-total_depth / 2, backHeight / 2])
+              patternField(total_depth, backHeight);
+          }
+  }
+
+  module perforationCuts() {
+    if (perforating) {
+      if (perforateBack) backPerforation();
+      if (perforateFront) frontPerforation();
+      if (perforateSides) sidePerforation();
     }
   }
 
@@ -392,6 +634,7 @@ module openGridInbox(
           sidePanels();
         }
         fingerCutout();
+        perforationCuts();
         mountSlots();
       }
     children();
