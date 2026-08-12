@@ -197,7 +197,7 @@ openGridInbox(
 module openGridInbox(
   paperWidth = 215.9,
   paperHeight = 279.4,
-  paperClearance = 4,
+  paperClearance = 3,
   pocketDepth = 25,
   rakeAngle = 12,
   backHeightPercent = 50,
