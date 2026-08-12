@@ -11,10 +11,8 @@ A wall-mounted paper, envelope, and file inbox that hangs on an openGrid wall us
 | `paperClearance` | float | 3 | Extra interior width beyond the sheet, total across both sides; a lower bound when width snapping is on |
 | `pocketDepth` | float | 25 | Interior depth at the floor — the stack capacity |
 | `rakeAngle` | float | 12 | Outward lean of the front panel, degrees from vertical |
-| `backHeightPercent` | float | 51 | Back panel height as a percentage of `paperHeight` |
-| `frontHeightPercent` | float | 30 | Front panel height as a percentage of `paperHeight`; must be enough below `backHeightPercent` to clear `cornerRounding` |
-| `cornerRefinementType` | string | `"Fillet"` | Corner style on the front and side panel silhouettes: `"None"`, `"Chamfer"`, `"Fillet"` |
-| `cornerRefinementSize` | float | 3 | Size of the fillet or chamfer; reduced automatically where it will not fit |
+| `backHeightPercent` | float | 50 | Back panel height as a percentage of `paperHeight` |
+| `frontHeightPercent` | float | 30 | Front panel height as a percentage of `paperHeight`; must be shorter than the back panel |
 | `wallThickness` | float | 2.4 | Thickness of the front and side panels |
 | `backThickness` | float | 4 | Thickness of the back panel; must contain the openConnect slots |
 | `floorThickness` | float | 2.4 | Thickness of the pocket floor |
@@ -44,15 +42,6 @@ Panel dimensions are then snapped to the 28mm openConnect tile so the slot grid 
 Both can be turned off with `snapWidthToGrid` / `snapHeightToGrid`, which gives exact percentage-derived dimensions and a grid that leaves a partial tile unused.
 
 At the defaults — US Letter portrait, 50% back, 30% front — that is a 224 × 49.3 × 140mm part with a full 8 × 5 tile grid, a 219.2mm pocket (3.3mm clearance), and 195.6mm of the sheet visible above the front panel. The rendered part echoes all of this.
-
-## Corner refinement
-
-`cornerRefinementType` picks a fillet, a chamfer, or nothing, matching the naming the other openGrid parts use. The requested size is reduced in two places, both silently and both reported in the echo when they bite:
-
-- **Per corner**, to whatever the two edges meeting there can absorb. The front panel's top corners sit on a face only as wide as the panel is thick, so they take about a millimetre no matter what you ask for.
-- **Globally**, to a cap derived from the front panel thickness. The side panels would otherwise refine the shared front-top corner back further than that narrow top face can bridge, opening a notch through to the pocket at each front corner. The cap is fitted below the measured onset; a chamfer cuts more than the equivalent fillet and reaches it first.
-
-The practical consequence: a thicker `wallThickness` buys a larger usable refinement. At the 2.4mm default anything above about 4mm is clamped.
 
 ## Orientation
 

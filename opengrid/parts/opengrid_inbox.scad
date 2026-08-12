@@ -77,13 +77,6 @@ Back_Height_Percent = 50; // [15:1:100]
 // enough below Back_Height_Percent for the side panels to taper.
 Front_Height_Percent = 30; // [5:1:95]
 
-// How to refine the front and side panel corners
-Corner_Refinement_Type = "Fillet"; // [None, Chamfer, Fillet]
-
-// Measurement for the selected corner refinement, in mm. Automatically reduced
-// at any corner too tight to take it.
-Corner_Refinement_Size = 3; // [0:0.5:15]
-
 /* [Thickness] */
 
 // Thickness of the front and side panels, in mm
@@ -146,47 +139,6 @@ Smoothing = 64; // [16:8:256]
 
 /* [Hidden] */
 
-// Shrinks each requested corner radius until its roundover fits the two edges
-// meeting at that corner, so no combination of Customizer values can produce a
-// path BOSL2 refuses to round. A roundover of radius r at a corner whose
-// interior angle is a consumes r * tan((180 - a) / 2) of each adjacent edge;
-// holding that to just under half the edge guarantees two neighbouring
-// roundovers never overlap, with enough slack that an exactly-tight fit does
-// not trip BOSL2's floating-point check.
-CORNER_FIT_MARGIN = 0.99;
-
-// Corner refinement is additionally capped at CORNER_CAP_BASE plus this
-// multiple of the front panel's slab run - see refinement_cap below for why,
-// and for the measurements these two numbers are fitted to.
-CORNER_CAP_BASE = 2;
-CORNER_CAP_SLAB_MULTIPLE = 0.8;
-
-function cornerConsumptionRate(path, i) =
-  let(n = len(path))
-    tan((180 - vector_angle(path[(i - 1 + n) % n], path[i], path[(i + 1) % n])) / 2);
-
-function fitCornerRadii(path, radii) =
-  let(
-    n = len(path),
-    segments = [for (i = [0:n - 1]) norm(path[(i + 1) % n] - path[i])]
-  ) [
-    for (i = [0:n - 1])
-      let(
-        consumedPerRadius = cornerConsumptionRate(path, i),
-        shortestEdge = min(segments[(i - 1 + n) % n], segments[i])
-      ) radii[i] <= 0 || consumedPerRadius <= 0
-        ? 0
-        : min(radii[i], CORNER_FIT_MARGIN * shortestEdge / 2 / consumedPerRadius)
-  ];
-
-// BOSL2 takes a radius for circular roundovers but a joint distance for
-// chamfers. A chamfer that meets its edges where a radius-r roundover would be
-// tangent has joint = r * tan((180 - a) / 2) - the same edge length the fitter
-// above budgets for - so a fitted radius converts straight across and both
-// refinements are guaranteed to fit identically.
-function cornerJoints(path, radii) =
-  [for (i = [0:len(path) - 1]) radii[i] * cornerConsumptionRate(path, i)];
-
 // Paper presets in mm, [width, height].
 A4_SIZE = [210, 297];
 US_LETTER_SIZE = [215.9, 279.4];
@@ -214,8 +166,6 @@ openGridInbox(
   rakeAngle=Rake_Angle,
   backHeightPercent=Back_Height_Percent,
   frontHeightPercent=Front_Height_Percent,
-  cornerRefinementType=Corner_Refinement_Type,
-  cornerRefinementSize=Corner_Refinement_Size,
   wallThickness=Wall_Thickness,
   backThickness=Back_Thickness,
   floorThickness=Floor_Thickness,
@@ -252,8 +202,6 @@ module openGridInbox(
   rakeAngle = 12,
   backHeightPercent = 50,
   frontHeightPercent = 30,
-  cornerRefinementType = "Fillet",
-  cornerRefinementSize = 3,
   wallThickness = 2.4,
   backThickness = 4,
   floorThickness = 2.4,
@@ -300,27 +248,8 @@ module openGridInbox(
   front_outer_top_depth = front_inner_top_depth + front_slab_run;
   total_depth = front_outer_top_depth;
 
-  // The side panels and the front panel share the front-top corner but cannot
-  // refine it equally: the front panel's top face is only front_slab_run wide,
-  // so its own corner gets clamped to a fraction of a millimetre while the side
-  // panels would take the full size. Past a point the side panels refine back
-  // further than that narrow top face can bridge and a notch opens through to
-  // the pocket at each front corner - a valid solid, but two unintended holes.
-  //
-  // The onset grows with front_slab_run but not proportionally, so this cap is
-  // affine. It is fitted below the measured first failure for a chamfer, which
-  // cuts more than the equivalent fillet and so fails earliest:
-  //     slab 1.23mm - safe at 4, notched at 6   -> cap 2.98
-  //     slab 2.45mm - safe at 6, notched at 8   -> cap 3.96
-  //     slab 6.13mm - safe at 8, notched at 15  -> cap 6.90
-  // Re-measure if the front panel or side silhouette changes shape.
-  refinement_cap = CORNER_CAP_BASE + CORNER_CAP_SLAB_MULTIPLE * front_slab_run;
-  corner_size = cornerRefinementType == "None" ? 0 : min(cornerRefinementSize, refinement_cap);
-
-  assert(backHeight > frontHeight + corner_size,
-    str("Back_Height_Percent must exceed Front_Height_Percent by enough to clear Corner_Refinement_Size (",
-      corner_size, "mm on a ", paperHeight, "mm sheet is ",
-      100 * corner_size / paperHeight, "%), so the side panels can taper."));
+  assert(backHeight > frontHeight,
+    "Back_Height_Percent must exceed Front_Height_Percent, so the side panels can taper.");
   assert(backThickness >= slotHeight + MIN_BACK_WALL,
     str("Back_Thickness must be at least ", slotHeight + MIN_BACK_WALL,
       "mm to contain the openConnect slots plus a solid backing wall."));
@@ -348,14 +277,6 @@ module openGridInbox(
     paperHeight - frontHeight, "mm visible above the front panel."
   ));
 
-  if (cornerRefinementType != "None" && cornerRefinementSize > refinement_cap)
-    echo(str(
-      "opengrid_inbox: corner refinement reduced from ", cornerRefinementSize, "mm to ",
-      refinement_cap, "mm - a ", wallThickness,
-      "mm front panel cannot bridge more than that without opening a notch at the front corners. ",
-      "Thicken Wall_Thickness to allow a larger one."
-    ));
-
   grid_height = v_grids * OG_TILE_SIZE;
   grid_center_z =
     mountVerticalAlignment == "Top" ? backHeight - grid_height / 2
@@ -370,7 +291,6 @@ module openGridInbox(
     [-backThickness, backHeight],
     [0, backHeight],
   ];
-  side_radii = [0, corner_size, corner_size, corner_size, 0];
 
   // Raked front panel, seen from the side, as [y, z] pairs.
   front_profile = [
@@ -379,21 +299,12 @@ module openGridInbox(
     [-front_outer_top_depth, frontHeight],
     [-front_inner_top_depth, frontHeight],
   ];
-  front_radii = [0, 0, corner_size, corner_size];
 
-  // Extrudes a [y, z] profile along X, centered on the origin, refining its
-  // corners first. Chamfers are specified by joint distance rather than radius,
-  // so a fitted radius is converted; both consume the same edge length.
-  module extrudeProfile(profile, radii, width) {
-    fitted = fitCornerRadii(profile, radii);
-    refined =
-      max(fitted) <= 0 ? profile
-      : cornerRefinementType == "Chamfer"
-        ? round_corners(profile, joint=cornerJoints(profile, fitted), method="chamfer", closed=true)
-        : round_corners(profile, radius=fitted, method="circle", closed=true);
+  // Extrudes a [y, z] profile along X, centered on the origin.
+  module extrudeProfile(profile, width) {
     rotate([90, 0, 90])
       linear_extrude(height=width, center=true)
-        polygon(refined);
+        polygon(profile);
   }
 
   module backPanel() {
@@ -408,12 +319,12 @@ module openGridInbox(
   }
 
   module frontPanel() {
-    extrudeProfile(front_profile, front_radii, outer_width);
+    extrudeProfile(front_profile, outer_width);
   }
 
   module sidePanels() {
     xcopies(spacing=outer_width - wallThickness, n=2)
-      extrudeProfile(side_profile, side_radii, wallThickness);
+      extrudeProfile(side_profile, wallThickness);
   }
 
   // Grab cutout in the top edge of the front panel. Extruded along Y so the
