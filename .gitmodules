@@ -4,3 +4,6 @@
 [submodule "external/QuackWorks"]
 	path = external/QuackWorks
 	url = https://github.com/jhuizingh/QuackWorks.git
+[submodule "external/opengrid-projects"]
+	path = external/opengrid-projects
+	url = https://github.com/mitufy/opengrid-projects.git

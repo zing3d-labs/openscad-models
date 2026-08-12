@@ -8,7 +8,7 @@ A parametric OpenSCAD module file. A part file:
 
 - Contains a `module foo(param1, param2, ...)` with all configuration exposed in its signature
 - Has Customizer-compatible variables at the top — the *curated public interface*, a deliberate subset of what the module accepts
-- Has a top-level render call at the bottom (e.g., `opengrid_dual_sided_snap();`) so the file renders as a preview in OpenSCAD and can be used as a build target directly
+- Has a top-level render call, placed after the Customizer variables and before the module definition (e.g., `dualSidedSnap(...);`), so the file renders as a preview in OpenSCAD and can be used as a build target directly. The call wires the Customizer variables to the module's named parameters, which is why it reads best directly below them — OpenSCAD hoists module definitions, so the module it calls may be defined further down the file.
 
 ### Kit
 
@@ -47,7 +47,9 @@ All named measurements (offsets, distances, thicknesses) must be defined as posi
 
 ## External Libraries
 
-`external/` is shared across all systems. BOSL2 and QuackWorks are referenced via git submodules. Files use relative paths to import from `external/`.
+`external/` is shared across all systems. BOSL2, QuackWorks, and opengrid-projects (mitufy's openConnect connector library) are referenced via git submodules. Files use relative paths to import from `external/`.
+
+External libraries carry their own licenses, and some are more restrictive than others. Before depending on a new external file, check its license against the repository license and record the conclusion in the part's file header — see `opengrid/parts/opengrid_inbox.scad` for the pattern.
 
 ## Future
 
