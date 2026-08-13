@@ -1,10 +1,31 @@
 include <BOSL2/std.scad>
 use <../../external/QuackWorks/openGrid/opengrid-snap.scad>
 
-Spacing = 1; // Spacing between the backs of the two snaps
-Side_B_Flipped = true; // For directional snaps, orient the opposite way for each side
+/* [Side A] */
 
-dualSidedSnap(Lite_A=false, Lite_B=true, Directional_A=true, Directional_B=false, Side_B_Flipped=Side_B_Flipped, Spacing=Spacing);
+// Lite (3.4mm) snap rather than Standard (6.8mm) -- match the tile on this side
+Lite_A = false;
+
+// Lock in from one side only, for a stronger hold that resists pull-out
+Directional_A = true;
+
+/* [Side B] */
+
+// Lite (3.4mm) snap rather than Standard (6.8mm) -- match the tile on this side
+Lite_B = true;
+
+// Lock in from one side only, for a stronger hold that resists pull-out
+Directional_B = false;
+
+/* [Assembly] */
+
+// Spacing between the backs of the two snaps
+Spacing = 1;
+
+// For directional snaps, orient the opposite way for each side
+Side_B_Flipped = true;
+
+dualSidedSnap(Lite_A=Lite_A, Lite_B=Lite_B, Directional_A=Directional_A, Directional_B=Directional_B, Side_B_Flipped=Side_B_Flipped, Spacing=Spacing);
 
 module dualSidedSnap(Lite = true, Directional = true, Directional_A, Directional_B, Lite_A, Lite_B, Side_B_Flipped = true, Spacing = 3, Tile_Size = 28, anchor, orient, spin) {
   w = Tile_Size - 3.2;
