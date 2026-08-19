@@ -64,6 +64,20 @@ The pin tracks the `zing3d-integration` branch, which exists to give those commi
 
 The branch is upstream's `main` plus those two commits. When upstream moves, rebase `zing3d-integration` onto it and bump the pin here. Upstream has been dormant — three commits in the nine months to 2026-08 — so this is rare. If the fixes land upstream, the fork and this note can go away.
 
+## Tests
+
+Each part may carry a sidecar `<part>.tests.yaml` beside it, declaring **feature
+tests**: a named feature, the camera angle that shows it, and the parameter
+combinations that prove it works. A pull request that touches a part renders
+those cases on both sides of the change and reports what moved.
+
+The organising unit is the feature rather than the part, so one part has many
+tests and a change to a shared module is traced through the dependency graph to
+every part it reaches. See [docs/visual-regression-tests.md](docs/visual-regression-tests.md).
+
 ## Future
 
-A validation script or CI check to enforce these conventions (module definition, Customizer variables, top-level render call) is a planned but not yet implemented enhancement.
+A validation script or CI check to enforce the conventions above (module
+definition, Customizer variables, top-level render call) is a planned but not
+yet implemented enhancement. The visual regression check covers geometry, not
+file structure.

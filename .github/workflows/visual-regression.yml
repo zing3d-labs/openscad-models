@@ -1,0 +1,251 @@
+name: Visual regression
+
+# Renders the affected parts on both sides of a pull request and reports what
+# moved. Advisory: a geometry difference never fails the check, because most
+# model changes are meant to change the render. See
+# docs/visual-regression-tests.md.
+
+on:
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      base:
+        description: Ref to compare the current branch against
+        default: main
+        required: false
+
+concurrency:
+  group: visual-regression-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  # The real tip of the branch, not the synthetic merge commit GitHub checks
+  # out by default for a pull request. The merge base has to be taken against
+  # the branch as pushed, or every comparison silently becomes "no change".
+  HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+  # A pull request from a fork gets a read-only token, so the comment and the
+  # image branch are out of reach. Those runs degrade to the job summary and
+  # the uploaded artifact rather than failing or asking for a token they should
+  # not have. pull_request_target would hand out a write token here — this
+  # workflow executes the contributor's own .scad and .tests.yaml, so that
+  # would be the textbook pwn-request hole.
+  IS_FORK: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository }}
+
+jobs:
+  select:
+    name: Select affected parts
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.select.outputs.matrix }}
+      any: ${{ steps.select.outputs.any }}
+      merge_base: ${{ steps.select.outputs.merge_base }}
+      missing_specs: ${{ steps.select.outputs.missing_specs }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+          # Needed to resolve dependencies into external/, which is how a
+          # submodule pin bump gets traced back to the parts it affects.
+          submodules: true
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install --quiet -r tools/visual_tests/requirements.txt
+
+      - name: Validate every spec
+        run: python -m tools.visual_tests validate
+
+      - name: Select
+        id: select
+        env:
+          BASE_REF: origin/${{ github.event.pull_request.base.ref || inputs.base || 'main' }}
+        run: python -m tools.visual_tests select --base "$BASE_REF" --output selection.json
+
+      - name: Report parts with no spec
+        if: steps.select.outputs.missing_specs != '[]'
+        env:
+          MISSING: ${{ steps.select.outputs.missing_specs }}
+        run: |
+          {
+            echo "### Parts changed without a feature test spec"
+            echo
+            echo "A model that changes is meant to carry the feature test that covers it."
+            echo "These parts were affected by this change but have no \`.tests.yaml\` beside"
+            echo "them, so nothing was compared for them:"
+            echo
+            python -c "import json,os;[print('- \`%s\`' % p) for p in json.loads(os.environ['MISSING'])]"
+            echo
+            echo "See \`docs/visual-regression-tests.md\` for how to add one."
+          } >>"$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: visual-regression-selection
+          path: selection.json
+
+  compare:
+    name: Compare ${{ matrix.slug }}
+    needs: select
+    if: needs.select.outputs.any == 'true'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.select.outputs.matrix) }}
+    steps:
+      - name: Check out the pull request
+        uses: actions/checkout@v4
+        with:
+          path: head
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          submodules: true
+
+      - name: Check out the merge base
+        uses: actions/checkout@v4
+        with:
+          path: base
+          ref: ${{ needs.select.outputs.merge_base }}
+          submodules: true
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install --quiet -r head/tools/visual_tests/requirements.txt
+
+      - name: Install graphics libraries
+        # OpenSCAD nightlies render offscreen through EGL, so there is no Xvfb
+        # here — just the GL stack the AppImage does not bundle.
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends libegl1 libgl1 libglu1-mesa libopengl0
+
+      - name: Install OpenSCAD
+        run: head/.github/scripts/install-openscad.sh
+
+      - name: Determinism canary
+        id: canary
+        # Exact comparison assumes an identical commit renders identically.
+        # This is the check that says so out loud on the machine about to do
+        # the comparing. Unlike a geometry difference it is allowed to fail the
+        # job: a renderer that is not deterministic makes the report below
+        # meaningless rather than merely uninteresting.
+        continue-on-error: true
+        working-directory: head
+        run: |
+          python -m tools.visual_tests canary \
+            --part "${{ matrix.part }}" \
+            --head-ref "$HEAD_SHA" \
+            --out "${GITHUB_WORKSPACE}/out/${{ matrix.slug }}"
+
+      - name: Compare
+        working-directory: head
+        run: |
+          python -m tools.visual_tests run \
+            --part "${{ matrix.part }}" \
+            --base-root "${GITHUB_WORKSPACE}/base" \
+            --base-ref "${{ needs.select.outputs.merge_base }}" \
+            --head-ref "$HEAD_SHA" \
+            --out "${GITHUB_WORKSPACE}/out/${{ matrix.slug }}"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: visual-regression-${{ matrix.slug }}
+          path: out/${{ matrix.slug }}
+          if-no-files-found: error
+
+      - name: Fail if the canary failed
+        if: steps.canary.outcome == 'failure'
+        run: |
+          echo "::error::The same commit rendered twice did not come out identical."
+          echo "Exact comparison is unsound in this environment; see the canary step."
+          exit 1
+
+  publish:
+    name: Publish results
+    needs: [select, compare]
+    if: always() && needs.select.outputs.any == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install --quiet -r tools/visual_tests/requirements.txt
+
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: visual-regression-*
+          path: artifacts
+
+      - name: Collect the results
+        id: collect
+        run: |
+          set -euo pipefail
+          mkdir -p images
+          found=0
+          for directory in artifacts/visual-regression-*/; do
+            [ -f "$directory/result.json" ] || continue
+            found=1
+            slug="$(basename "$directory")"
+            slug="${slug#visual-regression-}"
+            mkdir -p "images/$slug"
+            # Keep the `images/` component: the paths recorded in result.json
+            # include it, and the comment builds its URLs straight from those.
+            if [ -d "$directory/images" ]; then
+              cp -R "$directory/images" "images/$slug/"
+            fi
+          done
+          echo "found=$found" >>"$GITHUB_OUTPUT"
+
+      - name: Publish images
+        id: images
+        if: steps.collect.outputs.found == '1' && env.IS_FORK == 'false' && github.event_name == 'pull_request'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          url="$(.github/scripts/publish-images.sh images "${{ github.event.pull_request.number }}")"
+          echo "base_url=$url" >>"$GITHUB_OUTPUT"
+
+      - name: Build and post the reports
+        if: steps.collect.outputs.found == '1'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          IMAGE_BASE_URL: ${{ steps.images.outputs.base_url }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          set -euo pipefail
+          for directory in artifacts/visual-regression-*/; do
+            [ -f "$directory/result.json" ] || continue
+            slug="$(basename "$directory")"
+            slug="${slug#visual-regression-}"
+            notes=()
+            if [ "$IS_FORK" = "true" ]; then
+              notes+=(--note "This pull request comes from a fork, so the workflow token is read-only and images are not published. Every image is in the run's artifact.")
+            fi
+            python -m tools.visual_tests report \
+              --result "$directory/result.json" \
+              --canary "$directory/canary.json" \
+              --image-base-url "${IMAGE_BASE_URL:-}" \
+              ${notes[@]+"${notes[@]}"} \
+              --out "comment-$slug.md"
+            cat "comment-$slug.md" >>"$GITHUB_STEP_SUMMARY"
+            printf '\n' >>"$GITHUB_STEP_SUMMARY"
+            if [ "$IS_FORK" = "false" ] && [ -n "$PR_NUMBER" ]; then
+              marker="$(python -c "import json,sys;from tools.visual_tests.report import marker;print(marker(json.load(open(sys.argv[1]))['part']))" "$directory/result.json")"
+              .github/scripts/upsert-comment.sh "$PR_NUMBER" "$marker" "comment-$slug.md"
+            fi
+          done
