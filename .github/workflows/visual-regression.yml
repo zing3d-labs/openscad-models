@@ -97,6 +97,9 @@ jobs:
     needs: select
     if: needs.select.outputs.any == 'true'
     runs-on: ubuntu-latest
+    # Rendering is the only expensive thing here and it is bounded per case, so
+    # anything past this is a hang rather than a big model.
+    timeout-minutes: 90
     strategy:
       fail-fast: false
       matrix: ${{ fromJSON(needs.select.outputs.matrix) }}
@@ -127,10 +130,23 @@ jobs:
 
       - name: Install graphics libraries
         # OpenSCAD nightlies render offscreen through EGL, so there is no Xvfb
-        # here — just the GL stack the AppImage does not bundle.
+        # here — just the GL stack the AppImage does not bundle, most of which
+        # the runner image already carries.
+        #
+        # This step is bounded and cannot fail the job. A freshly booted runner
+        # has unattended-upgrades holding the dpkg lock, and apt will wait on it
+        # indefinitely — observed here at 20 minutes and still going. The render
+        # step is the real test of whether anything is actually missing, so time
+        # this out and carry on rather than letting it hang the run.
         run: |
-          sudo apt-get update -qq
-          sudo apt-get install -y --no-install-recommends libegl1 libgl1 libglu1-mesa libopengl0
+          packages="libegl1 libgl1 libglu1-mesa libopengl0"
+          if sudo timeout 240 apt-get install -y --no-install-recommends \
+               -o DPkg::Lock::Timeout=120 -o Acquire::Retries=3 $packages; then
+            echo "installed: $packages"
+          else
+            echo "::warning::Could not install $packages within the time limit."
+            echo "Continuing with whatever the runner image provides."
+          fi
 
       - name: Install OpenSCAD
         run: head/.github/scripts/install-openscad.sh
@@ -237,15 +253,12 @@ jobs:
             [ -f "$directory/result.json" ] || continue
             slug="$(basename "$directory")"
             slug="${slug#visual-regression-}"
-            notes=()
-            if [ "$IS_FORK" = "true" ]; then
-              notes+=(--note "This pull request comes from a fork, so the workflow token is read-only and images are not published. Every image is in the run's artifact.")
-            fi
+            # With no image base URL the report says so itself, so there is
+            # nothing extra to add for the fork case here.
             python -m tools.visual_tests report \
               --result "$directory/result.json" \
               --canary "$directory/canary.json" \
               --image-base-url "${IMAGE_BASE_URL:-}" \
-              ${notes[@]+"${notes[@]}"} \
               --out "comment-$slug.md"
             cat "comment-$slug.md" >>"$GITHUB_STEP_SUMMARY"
             printf '\n' >>"$GITHUB_STEP_SUMMARY"

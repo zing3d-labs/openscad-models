@@ -176,8 +176,9 @@ def _render(result: dict[str, Any], base_url: str | None, detail: int, notes: li
 
     if base_url is None and changed:
         lines.append(
-            "> Images are not published for pull requests from forks. "
-            "Download the workflow artifact to see them."
+            "> Images are not published for this run — a pull request from a fork gets a "
+            "read-only token, so there is nowhere to host them. Every image is in the "
+            "run's artifact."
         )
         lines.append("")
 
@@ -271,6 +272,14 @@ def canary_note(canary: dict[str, Any]) -> str | None:
     if not canary.get("ran"):
         return None
     if canary.get("passed"):
+        if canary.get("triangle_count_stable") is False:
+            # Not a failure: triangle count is informational precisely because a
+            # mesh generator may tessellate the same solid differently. Worth
+            # saying once, so nobody reads a count change below as a finding.
+            return (
+                "Note: the same commit meshed twice produced different triangle counts, so "
+                "triangle count is noise in this environment. The other measurements held."
+            )
         return None
     problems = []
     if canary.get("image_stable") is False:
