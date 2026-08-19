@@ -52,6 +52,41 @@ def _format_number(value: float) -> str:
     return f"{value:,.2f}"
 
 
+def _bbox_phrase(bbox: dict[str, Any]) -> str:
+    """Say what actually moved.
+
+    A bounding box can change by growing or by sliding: shifting a part along
+    an axis moves both corners and leaves the size alone. Reporting size only
+    produces "bbox 112.00 x 112.00 -> 112.00 x 112.00", which reads as a
+    contradiction rather than as a translation.
+    """
+    before, after = bbox["before"], bbox["after"]
+    size_before = [hi - lo for lo, hi in zip(before["min"], before["max"])]
+    size_after = [hi - lo for lo, hi in zip(after["min"], after["max"])]
+    shift = [a - b for b, a in zip(before["min"], after["min"])]
+    tolerance = bbox.get("tolerance", 0.0)
+
+    resized = any(abs(a - b) > tolerance for b, a in zip(size_before, size_after))
+    moved = any(abs(d) > tolerance for d in shift)
+
+    phrases = []
+    if resized:
+        phrases.append(
+            "**bbox "
+            + " × ".join(f"{v:,.2f}" for v in size_before)
+            + " → "
+            + " × ".join(f"{v:,.2f}" for v in size_after)
+            + " mm**"
+        )
+    if moved:
+        phrases.append("**moved by (" + ", ".join(f"{d:+,.2f}" for d in shift) + ") mm**")
+    if not phrases:
+        # Below the per-axis tolerance on every axis, yet over it on the
+        # combined corner comparison. Say so rather than printing nothing.
+        phrases.append(f"**bbox shifted by up to {bbox['max_delta']:,.4f} mm**")
+    return ", ".join(phrases)
+
+
 def _metric_sentence(metrics: dict[str, Any] | None) -> str:
     if not metrics:
         return "measurements unavailable"
@@ -67,16 +102,7 @@ def _metric_sentence(metrics: dict[str, Any] | None) -> str:
         )
     bbox = metrics["bbox"]
     if bbox["changed"]:
-        before, after = bbox["before"], bbox["after"]
-        size_before = [hi - lo for lo, hi in zip(before["min"], before["max"])]
-        size_after = [hi - lo for lo, hi in zip(after["min"], after["max"])]
-        parts.append(
-            "**bbox "
-            + " × ".join(f"{v:,.2f}" for v in size_before)
-            + " → "
-            + " × ".join(f"{v:,.2f}" for v in size_after)
-            + " mm**"
-        )
+        parts.append(_bbox_phrase(bbox))
     triangles = metrics["triangle_count"]
     if triangles["changed"]:
         parts.append(f"triangles {triangles['before']:,} → {triangles['after']:,} (informational)")
