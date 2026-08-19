@@ -15,6 +15,8 @@ from __future__ import annotations
 from pathlib import PurePosixPath
 from typing import Any
 
+from .openscad import BACKEND
+
 COMMENT_LIMIT = 65536
 # Room for GitHub to be stricter than documented, and for anything a caller
 # appends after the fact.
@@ -244,7 +246,7 @@ def _render(result: dict[str, Any], base_url: str | None, detail: int, notes: li
 
     lines.append(
         f"<sub>OpenSCAD `{result['openscad'].splitlines()[0] if result['openscad'] else 'unknown'}`, "
-        f"backend `manifold` · {result['duration_seconds']}s · "
+        f"backend `{BACKEND}` · {result['duration_seconds']}s · "
         "full-resolution images are attached to the workflow run as an artifact.</sub>"
     )
     return "\n".join(lines).rstrip() + "\n"
