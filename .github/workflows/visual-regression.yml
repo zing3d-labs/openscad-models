@@ -48,9 +48,11 @@ jobs:
         with:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
           fetch-depth: 0
-          # Needed to resolve dependencies into external/, which is how a
-          # submodule pin bump gets traced back to the parts it affects.
-          submodules: true
+
+      - name: Check out the submodules
+        # Needed to resolve dependencies into external/, which is how a
+        # submodule pin bump gets traced back to the parts it affects.
+        run: .github/scripts/init-submodules.sh
 
       - uses: actions/setup-python@v5
         with:
@@ -104,14 +106,17 @@ jobs:
         with:
           path: head
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
-          submodules: true
 
       - name: Check out the merge base
         uses: actions/checkout@v4
         with:
           path: base
           ref: ${{ needs.select.outputs.merge_base }}
-          submodules: true
+
+      - name: Check out the submodules on both sides
+        run: |
+          head/.github/scripts/init-submodules.sh head
+          head/.github/scripts/init-submodules.sh base
 
       - uses: actions/setup-python@v5
         with:
