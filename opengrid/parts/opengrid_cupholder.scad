@@ -21,6 +21,29 @@
   down on the board at all.
 
   ---------------------------------------------------------------------------
+  Directions
+
+  Two things in this file point somewhere: the handle slots take an angle, and
+  the openConnect mount takes compass-style direction names. They share one
+  frame, so a slot can be lined up with the mount by number rather than by eye:
+
+      +X    angle   0    Slot_Slide_Direction "Right"
+      +Y    angle  90    Slot_Slide_Direction "Up"
+      -X    angle 180    Slot_Slide_Direction "Left"
+      -Y    angle 270    Slot_Slide_Direction "Down"
+
+  The angle is measured looking down into the cup, counterclockwise from +X,
+  the way zrot() measures - so 0 is to the right, 90 away from you, 180 to the
+  left, 270 toward you. Both mounts read it the same way, so changing
+  Mount_Type leaves the slots where they are.
+
+  The four direction names come from mitufy's connector library. They are
+  written above as the axes they actually land on rather than as left and right
+  from some viewpoint, because the cup and the underside it mounts by are
+  looked at from opposite sides and naming one of them would settle less than
+  it appears to.
+
+  ---------------------------------------------------------------------------
   Licensing
 
   The cup holder geometry in this file is original work by zing3d-labs and is
@@ -82,7 +105,13 @@ Handle_Slot_Height = 45; // [1:1:200]
 Handle_Slot_Width = 30; // [1:0.5:120]
 
 // Angle of the first slot around the cup, in degrees. The remaining slots
-// follow evenly around from it.
+// follow evenly around from it. Measured looking down into the cup from above,
+// counterclockwise from +X, the way zrot() measures:
+//
+//     0 = right,  90 = back (away from you),  180 = left,  270 = front
+//
+// Both mounts read it the same way, so changing Mount_Type does not move the
+// slots.
 Handle_Slot_Start_Angle = 0; // [0:5:355]
 
 // How to break the two ends of each slot - the mouth at the rim and the closed
@@ -125,10 +154,12 @@ Snap_Placement = "Corners"; // [All, Edges, Corners]
 
 /* [openConnect Mount] */
 
-// Direction the holder slides to come off the connectors, as seen from the
-// board side of the base - the same naming opengrid_inbox.scad uses. It seats
-// by sliding the opposite way, so point this at whichever side of the board
-// has room to work. On a horizontal board none of the four is uphill.
+// Direction the holder slides to come off the connectors, in the model's own
+// axes: "Right" is +X, "Left" is -X, "Up" is +Y, "Down" is -Y. Those are the
+// axes Handle_Slot_Start_Angle is measured in, so "Right" is that angle's 0,
+// "Up" its 90, "Left" its 180 and "Down" its 270. The holder seats by sliding
+// the opposite way, so point this at whichever side of the board has room to
+// work. On a horizontal board none of the four is uphill.
 Slot_Slide_Direction = "Up"; // [Up, Down, Left, Right]
 
 // Which grid positions get a slot. A slot costs nothing to print, so cutting
@@ -143,7 +174,11 @@ Slot_Position = "All"; // [All, Staggered, Edge Rows, Edge Columns, Corners]
 // this out only if the fit comes out too tight to seat by hand.
 Slot_Lock_Distribution = "All"; // [All, Staggered, Corners, Top Corners, Bottom Corners, None]
 
-// Side the locking nubs sit on, as seen from the board side of the base
+// Side of the slot the locking nubs sit on. The slot turns with
+// Slot_Slide_Direction and this side turns with it, so it is worth naming the
+// axes: with a slide of "Up" or "Down", "Left" puts the nubs on the -X side
+// and "Right" on the +X side; with a slide of "Left" or "Right", "Left" puts
+// them on the -Y side and "Right" on the +Y side.
 Slot_Lock_Side = "Left"; // [Left, Right]
 
 // Flip the slot entry ramp, which changes which way its overhangs face
@@ -327,26 +362,36 @@ module openGridCupholder(
   }
 
   // Handle slot cutters, in cupBody's local frame: the cup opening is that
-  // frame's BOTTOM face, so the slots are measured down from there and reach
-  // up toward the facade. Emits nothing when slots are switched off, which
-  // leaves the cup body exactly as it would be without this feature.
+  // frame's TOP face, so the slots are measured down from there and reach down
+  // toward the base. That frame is never turned over on the way into the
+  // finished model, so zrot() here means what it means in the finished model -
+  // the angle is measured looking down into the cup, zero on +X, increasing
+  // counterclockwise. Emits nothing when slots are switched off, which leaves
+  // the cup body exactly as it would be without this feature.
   module handleSlotCutters() {
     $fn = Smoothing;
     if (handleSlotCount > 0 && slot_height > 0 && handleSlotWidth > 0) {
       for (i = [0 : handleSlotCount - 1]) {
         zrot(handleSlotStartAngle + i * 360 / handleSlotCount)
-          down(cupHolderHeight / 2)
+          up(cupHolderHeight / 2)
             // Swing the profile round so it extrudes radially outward from the
-            // cup axis, which keeps the slot sides parallel through the wall.
-            rotate([90, 0, 90])
+            // cup axis - which keeps the slot sides parallel through the wall -
+            // and so the profile's mouth end lands at the rim above and its
+            // closed end below.
+            rotate([-90, 0, -90])
               linear_extrude(height=slot_reach)
                 slotProfile();
       }
     }
   }
 
-  // Hollow tapered cup body, attachable so attach() can position it.
-  // Cup opening (top) is the free end; facade connection is the mounting end.
+  // Hollow tapered cup body, attachable so the mount can position it. Built
+  // standing the way it is used: the cup opening is the local TOP and the
+  // mounting end the local BOTTOM, so the body's own frame already agrees with
+  // the finished model's and neither mount has to turn it over. That is what
+  // keeps Handle_Slot_Start_Angle meaning the same thing under both mounts -
+  // turning the cup end-for-end would reverse its angular sense, and the two
+  // mounts would turn it over about different axes.
   module cupBody(anchor, orient, spin) {
     $fn = Smoothing;
     attachable(
@@ -358,8 +403,8 @@ module openGridCupholder(
       anchor=anchor, orient=orient, spin=spin
     ) {
       difference() {
-        cyl(h=cupHolderHeight, d1=outer_top_diameter, d2=outer_bottom_diameter);
-        down(0.01) cyl(h=cupHolderHeight + 0.02, d1=cupHolderTopDiameter, d2=cupHolderBottomDiameter);
+        cyl(h=cupHolderHeight, d1=outer_bottom_diameter, d2=outer_top_diameter);
+        up(0.01) cyl(h=cupHolderHeight + 0.02, d1=cupHolderBottomDiameter, d2=cupHolderTopDiameter);
         handleSlotCutters();
       }
       children();
@@ -370,9 +415,9 @@ module openGridCupholder(
   // same face the snaps would stand on. The library builds its grid opening
   // toward its own BOTTOM and extends upward from there, which is already the
   // way round this base needs, so the grid sits on the underside untransformed
-  // and eats mount_slot_depth up into the slab. That leaves the library's frame
-  // equal to the base's frame, and looking at the underside is the same view
-  // the inbox names its slide directions and lock side from.
+  // and eats mount_slot_depth up into the slab. Untransformed also means the
+  // library's frame is this base's frame, which is what lets the header state
+  // the slide directions as plain +X / +Y axes.
   module mountSlots() {
     down(baseThickness / 2)
       openconnect_slot_grid(
@@ -409,18 +454,23 @@ module openGridCupholder(
   }
 
   // Render: the base resting on the Z = 0 plane, board-facing side down, with
-  // the cup standing on top of it. attach(TOP, TOP) is what stands the cup up -
-  // cupBody's own TOP is its mounting end, so mating top to top turns it over
-  // and leaves the opening uppermost.
+  // the cup standing on top of it. cupBody already stands the right way up, so
+  // both mounts only ever move it - position() places it and nothing rotates
+  // it. Do not reach for attach() here: mating the cup to a face by anchor
+  // would turn it over to meet that face, and the two mounts present opposite
+  // faces, so each would turn it over differently and Handle_Slot_Start_Angle
+  // would come out mirrored, and mirrored differently per mount.
+  // The 0.1 in each branch is overlap into the base, so the cup and the base
+  // share a volume rather than meeting across a face.
   if (openConnectMount) {
-    openConnectBase(anchor=BOTTOM) {
-      attach(TOP, TOP, overlap=0.1)
-        cupBody();
-    }
+    openConnectBase(anchor=BOTTOM)
+      position(TOP) down(0.1) cupBody(anchor=BOTTOM);
   } else {
     // The facade draws its snaps on its own TOP, so it is turned over to put
-    // them against the board; the cup then hangs off what is now its upper
+    // them against the board; the cup then stands on what is now its upper
     // face, and the snap tips land on Z = 0 like the openConnect base does.
+    // Everything inside that xrot(180) is upside down, the cup included, so
+    // the cup gets an xrot(180) of its own to cancel it and stand up again.
     xrot(180) openGridFacade(
       xUnits=units,
       yUnits=units,
@@ -434,9 +484,7 @@ module openGridCupholder(
       topCornerDirectionalSnaps=false,
       topEdgeDirectionalSnaps=false,
       anchor=TOP
-    ) {
-      attach(BOTTOM, TOP, overlap=0.1)
-        cupBody();
-    }
+    )
+      position(BOTTOM) xrot(180) down(0.1) cupBody(anchor=BOTTOM);
   }
 }
