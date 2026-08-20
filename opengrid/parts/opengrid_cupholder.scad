@@ -351,7 +351,16 @@ module openGridCupholder(
   module slotProfile() {
     // Corner order is [X+Y+, X-Y+, X-Y-, X+Y-]: the two Y+ corners are the
     // closed end of the slot, the two Y- corners are the mouth at the rim.
-    ends = [slot_end_size, slot_end_size, -slot_end_size, -slot_end_size];
+    // A zero refinement has to be handed over as the scalar 0, not as a list
+    // of zeros: BOSL2's rect() module tests `rounding==0` to take its plain
+    // square path, and an all-zero LIST fails that test, so it calls the rect()
+    // function for a rounded path instead - which ignores _return_override on
+    // its own all-zero fast path and hands back a bare path where the module
+    // expects [points, override]. The module then reads one point as the whole
+    // polygon, and the slot cutter is never drawn.
+    ends = slot_end_size == 0
+      ? 0
+      : [slot_end_size, slot_end_size, -slot_end_size, -slot_end_size];
     fwd(slot_overhang) {
       if (handleSlotEndRefinementType == "Chamfer") {
         rect([handleSlotWidth, slot_height + slot_overhang], chamfer=ends, anchor=FRONT);
