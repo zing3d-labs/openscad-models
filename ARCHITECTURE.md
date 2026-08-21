@@ -58,7 +58,7 @@ QuackWorks is pinned to [jhuizingh/QuackWorks](https://github.com/jhuizingh/Quac
 - **Lite snap connectivity** — increases the click hole bridge thickness so lite snaps stay connected.
 - **Nub overlap** — overlaps the nub geometry with the core body so snaps do not split into separate bodies in slicers.
 
-Both touch `openGrid/opengrid-snap.scad`, which `opengrid_facade.scad` and `opengrid_dual_sided_snap.scad` depend on. They are proposed upstream in [PR #127](https://github.com/AndyLevesque/QuackWorks/pull/127) and remain unmerged.
+Both touch `openGrid/opengrid-snap.scad`, which `opengrid_facade.scad`, `opengrid_dual_sided_snap.scad`, and `opengrid_cupholder.scad` depend on. They are proposed upstream in [PR #127](https://github.com/AndyLevesque/QuackWorks/pull/127) and remain unmerged.
 
 The pin tracks the `zing3d-integration` branch, which exists to give those commits a stable home. It is deliberately *not* the PR branch `fix/lite-snap-click-hole-bridge`: a PR branch can be deleted on merge, rebased, or force-pushed, any of which would orphan the pinned commit and break the submodule. `zing3d-integration` is only ever moved on purpose.
 
