@@ -44,6 +44,79 @@
   it appears to.
 
   ---------------------------------------------------------------------------
+  Base shape
+
+  The base is a square slab by default: a whole number of 28mm grid units on
+  each side, sized up to cover the cup. Base_Shape = "Circular" drops the slab
+  and leaves the cup's own outline as the whole base, so the holder carries no
+  material the cup does not stand on and nothing stands out past the cup.
+
+  The disc is the cup's outer diameter where it meets the base, so a cup that
+  flares upward - the default - overhangs its own base rather than sitting on
+  a lip. Size_Base_Units_To_Bottom_Diameter has nothing to choose here: it
+  sizes the square base's grid, and a disc is the base end's diameter either
+  way.
+
+  A square base is its own grid - every tile it covers is a whole tile, so
+  every tile takes a mount. A disc cuts across tiles, so both mounts share one
+  rule for which positions are supported:
+
+      A grid position takes a mount when everything that mount needs of the
+      base lies wholly inside the disc.
+
+  A partially covered tile is therefore not a special case: a position whose
+  mount would hang over the rim is dropped, whatever fraction of the tile the
+  disc covers, and nothing the mount does ever reaches the rim.
+
+  What "everything that mount needs" comes to differs by mount, and for
+  openConnect it is more than the footprint the library publishes. That
+  footprint covers the slot pocket and the 2mm wall around it, but the cutter's
+  lead-in ramp runs 9.4mm further toward the mouth, and a disc has no tile edge
+  to stop it the way a slab does - so the test takes the published footprint
+  and the cutter's own outline together. A snap is tested on its full 25.58mm
+  square, the 24.8mm core plus the click nubs standing proud of it, because a
+  nub cut off at the rim is a nub that no longer clicks.
+
+  A disc is not tied to the grid the way the slab is, so where the grid falls
+  under it is a free choice, and Mount_Alignment makes it:
+
+      Centered - a mount sits at the centre of the disc.
+      Maximal  - the grid is offset to support as many mounts as it can.
+
+  Either way the mounts stay 28mm apart, which is all the board asks of them.
+
+  What Maximal counts is mounts, not whole grid units. A mount needs the disc
+  under what it actually uses rather than under the whole 28mm tile, so
+  counting tiles would refuse positions that are perfectly well supported: the
+  default cup takes four openConnect slots on a disc only two whole tiles fit
+  under.
+
+  Maximal really searches. It does not test only the four offsets of nought or
+  half a tile in each axis, because those are not always the best. A 108mm disc
+  takes seven snaps at an offset of [0, 5.5]mm and six at any of the four. A
+  36mm disc takes one openConnect slot at [0, 24.75]mm where all four of them
+  take none at all - which is the difference between a holder that mounts and
+  one that refuses to build. The sweep covers half a tile in each axis the
+  mount footprint is symmetric about and a whole tile in each axis it is not,
+  in MOUNT_OFFSET_STEP steps.
+
+  Ties are settled twice over, because a lot of offsets support the same
+  number of mounts and some of those are plainly worse. First by which offset
+  leaves its tightest mount the most rim to spare, which takes a symmetric
+  arrangement over a lopsided one holding the same number rather than parking
+  a mount a tenth of a millimetre from the edge. Then by which is nearest
+  centred, which stops the grid sliding for no gain.
+
+  Snap_Placement and Slot_Position keep their meanings on a disc, read off the
+  supported positions rather than off a rectangle: a position is on an edge
+  row when it has no neighbour above or below it, on an edge column when it
+  has none to either side, and a corner when both are true. On a full
+  rectangular grid that picks out exactly what those options pick out today.
+
+  Corner_Refinement_Type and Corner_Refinement_Size are square-base settings.
+  A disc has no corners, so they are ignored there.
+
+  ---------------------------------------------------------------------------
   Licensing
 
   The cup holder geometry in this file is original work by zing3d-labs and is
@@ -60,9 +133,12 @@
   openGrid is created by David D:
       https://www.printables.com/model/1214361-opengrid-walldesk-mounting-framework-and-ecosystem
 
-  The snap mount comes from QuackWorks (external/QuackWorks), by way of
-  opengrid_facade.scad. QuackWorks is CC BY-NC-SA 4.0, the same license this
-  repository uses, so that dependency carries no additional terms.
+  The snap mount comes from QuackWorks (external/QuackWorks) - by way of
+  opengrid_facade.scad for the square base, and straight from
+  openGrid/opengrid-snap.scad for the circular one, which draws its own snaps
+  because the facade only knows how to draw rectangles. QuackWorks is
+  CC BY-NC-SA 4.0, the same license this repository uses, so that dependency
+  carries no additional terms.
 
   This file deliberately depends on the CONNECTOR LIBRARY ONLY. mitufy's
   holder / drawer / shelf / hook / label / gadget generators are CC BY-SA 4.0;
@@ -76,6 +152,7 @@
 // slot modules and the OG_/OC_ constants, so no separate BOSL2 include.
 include <../../external/opengrid-projects/lib/openconnect_lib.scad>
 use <opengrid_facade.scad>
+use <../../external/QuackWorks/openGrid/opengrid-snap.scad>
 
 /* [Cup Holder] */
 
@@ -128,6 +205,19 @@ Handle_Slot_End_Refinement_Size = 10; // [0.5:0.5:20]
 // alternatives - the options below apply only to the mount selected here.
 Mount_Type = "openConnect"; // [openConnect, Snaps]
 
+// Shape of the mounting base. Square is the grid-sized slab - a whole number
+// of 28mm units on a side, sized up to cover the cup. Circular drops the slab
+// and takes the cup's own outline instead, so the base carries no material the
+// cup does not stand on and never stands out past it. A disc has no corners,
+// so Corner_Refinement_Type and Corner_Refinement_Size do nothing there.
+Base_Shape = "Square"; // [Square, Circular]
+
+// Where the 28mm mount grid falls under a circular base. Centered puts a mount
+// at the centre of the disc. Maximal offsets the grid to support as many
+// mounts as it can, breaking ties toward the roomiest fit and then toward
+// centred. A square base is its own grid, so this does nothing there.
+Mount_Alignment = "Maximal"; // [Centered, Maximal]
+
 // Thickness of the mounting base, in mm. This is also the floor of the cup.
 // Left open rather than ranged: the snap mount is happy with a thin base, and
 // the openConnect mount asserts its own minimum of 2.7mm of slot plus 0.8mm of
@@ -136,6 +226,8 @@ Base_Thickness = 4;
 
 // Use the bottom (open end) diameter to size the grid instead of the top diameter.
 // The top diameter may overlap additional tiles slightly, which is fine if enabled.
+// This sizes the square base only: a circular base is the cup's outline where it
+// meets the base, which is the bottom diameter whichever way the cup tapers.
 Size_Base_Units_To_Bottom_Diameter = false;
 
 // How to adjust corners for visual appeal
@@ -195,6 +287,34 @@ Smoothing = 150; // [10:10:300]
 // cup keeps a continuous floor.
 MIN_BASE_WALL = 0.8;
 
+// What an openGrid snap needs clear on a circular base: 25.58mm square. That
+// is openGridSnap's 24.8mm core (its own w, in
+// external/QuackWorks/openGrid/opengrid-snap.scad) plus the click nubs, which
+// stand 0.39mm proud of the core on each side - measured off projection() of
+// openGridSnap(), and the reason the core's own width is not the number to
+// use. A nub the rim cuts through is a nub that no longer clicks.
+SNAP_FOOTPRINT = 25.58;
+
+// What an openConnect slot needs clear on a circular base, beyond the footprint
+// the library publishes. That footprint is the slot pocket plus its 2mm wall
+// and stops at y = -3.8; the cutter runs on to y = -13.2 for the lead-in ramp,
+// and 13.004mm out to the side the ramp is offset toward. A slab stops the
+// ramp at the tile edge and a disc does not, so the ramp has to be in the test
+// or a slot near the rim breaks through it. Measured off projection() of
+// openconnect_slot_grid() at one by one; re-measure if the pinned
+// external/opengrid-projects moves. Stated symmetrically in x because
+// Slot_Entry_Ramp_Flip mirrors the cutter, and flipping a ramp should not
+// rearrange every slot on the base.
+SLOT_CUTTER_BOUNDS = [[-13.004, -13.2], [13.004, 9]];
+
+// Step of the circular base's Maximal offset search, in mm. The search is a
+// sweep, so this is the resolution at which it can tell two offsets apart. An
+// offset band narrower than this holds a mount whose footprint clears the rim
+// by less than this - a fit so marginal that missing it costs nothing, which
+// is what makes a sweep an honest answer to the question rather than a
+// sampling of it.
+MOUNT_OFFSET_STEP = 0.25;
+
 openGridCupholder(
   cupHolderBottomDiameter=Cup_Holder_Bottom_Diameter,
   cupHolderTopDiameter=Cup_Holder_Top_Diameter,
@@ -207,6 +327,8 @@ openGridCupholder(
   handleSlotEndRefinementType=Handle_Slot_End_Refinement_Type,
   handleSlotEndRefinementSize=Handle_Slot_End_Refinement_Size,
   mountType=Mount_Type,
+  baseShape=Base_Shape,
+  mountAlignment=Mount_Alignment,
   baseThickness=Base_Thickness,
   sizeGridToBottomDiameter=Size_Base_Units_To_Bottom_Diameter,
   snapPlacement=Snap_Placement,
@@ -232,6 +354,8 @@ module openGridCupholder(
   handleSlotEndRefinementType = "Fillet",
   handleSlotEndRefinementSize = 10,
   mountType = "openConnect",
+  baseShape = "Square",
+  mountAlignment = "Maximal",
   baseThickness = 4,
   sizeGridToBottomDiameter = false,
   snapPlacement = "Corners",
@@ -295,12 +419,12 @@ module openGridCupholder(
   // does, so the echo below can report what the base could not accommodate.
   // The footprint turns with the slide direction, and openconnect_slot_grid()
   // keeps that mapping to itself, so it is repeated here to stay in step.
-  slot_footprint = zrot(
+  slot_facing =
     slotSlideDirection == "Left" ? 90
     : slotSlideDirection == "Right" ? -90
     : slotSlideDirection == "Down" ? 180
-    : 0,
-    struct_val(ocslot_cfg(), "footprint"));
+    : 0;
+  slot_footprint = zrot(slot_facing, struct_val(ocslot_cfg(), "footprint"));
   requested_slots = [
     for (i = [0 : units - 1], j = [0 : units - 1])
       if (is_grid_pos_described(i, j, units, units, slotPosition))
@@ -311,6 +435,185 @@ module openGridCupholder(
       if (is_pos_shape_in_region(cp=cp, footprint=slot_footprint, limit_region=[base_outline]))
         cp
   ];
+
+  // -------------------------------------------------------------------------
+  // Circular base. See the header for the rule these all serve: a grid
+  // position takes a mount when the mount's footprint, centred on it, lies
+  // wholly inside the base outline.
+  circularBase = baseShape == "Circular";
+
+  // The disc is the cup's own outline where it meets the base - not the sizing
+  // diameter, which takes the cup's widest end and would leave the base
+  // standing out past the cup as a lip everywhere the cup is narrower.
+  disc_diameter = outer_bottom_diameter;
+
+  // The disc is drawn as a Smoothing-sided polygon inscribed in that circle,
+  // so its rim sits a hair inside the circle. Fitting mounts against the
+  // apothem rather than the radius keeps "inside the base" true of the shape
+  // that is actually printed instead of the circle it stands in for.
+  fit_radius = disc_diameter / 2 * cos(180 / Smoothing);
+
+  // Everything an openConnect slot needs clear: the published footprint and the
+  // cutter's own outline, turned together to face the slide direction. They are
+  // simply concatenated rather than hulled - the test below asks whether every
+  // vertex is inside the disc, and the disc is convex, so a set of points
+  // answers for its hull.
+  slot_cutter_outline = zrot(slot_facing, [
+    [SLOT_CUTTER_BOUNDS[0].x, SLOT_CUTTER_BOUNDS[0].y],
+    [SLOT_CUTTER_BOUNDS[1].x, SLOT_CUTTER_BOUNDS[0].y],
+    [SLOT_CUTTER_BOUNDS[1].x, SLOT_CUTTER_BOUNDS[1].y],
+    [SLOT_CUTTER_BOUNDS[0].x, SLOT_CUTTER_BOUNDS[1].y],
+  ]);
+
+  // The outline the selected mount needs clear, in the base's own frame. A snap
+  // is square and faces nowhere, so it needs no turning.
+  mount_footprint = openConnectMount
+    ? concat(slot_footprint, slot_cutter_outline)
+    : rect([SNAP_FOOTPRINT, SNAP_FOOTPRINT]);
+
+  // No position further out than this can hold a mount, so the sweep below has
+  // somewhere to stop.
+  mount_reach = ceil((fit_radius + max([for (v = mount_footprint) norm(v)])) / OG_TILE_SIZE);
+
+  // The rule itself: every vertex of the footprint inside the disc. The
+  // footprint is convex and the disc is convex, so the vertices settle it for
+  // the edges between them too - which is also why is_pos_shape_in_region()
+  // can test vertices alone on the square base.
+  function mountFits(px, py) =
+    len([
+      for (v = mount_footprint)
+        if ((px + v.x) * (px + v.x) + (py + v.y) * (py + v.y) > fit_radius * fit_radius) 1
+    ]) == 0;
+
+  // Supported positions at a given grid offset, as grid indices - x to the
+  // right, y away, both counted from the position nearest the disc centre.
+  // The distance test in front is the cheap half of the same question: both
+  // footprints contain their own centre, so a position centred outside the
+  // disc cannot possibly fit, and most candidates are thrown out for one
+  // multiply rather than for a walk around a polygon.
+  function mountIndicesAt(offset) = [
+    for (i = [-mount_reach : mount_reach], j = [-mount_reach : mount_reach])
+      let (px = i * OG_TILE_SIZE - offset.x, py = j * OG_TILE_SIZE - offset.y)
+        if (px * px + py * py <= fit_radius * fit_radius && mountFits(px, py))
+          [i, j]
+  ];
+
+  function mountPositionAt(ij, offset) =
+    [ij.x * OG_TILE_SIZE - offset.x, ij.y * OG_TILE_SIZE - offset.y];
+
+  // Whether mirroring the footprint the given way leaves it unchanged. The
+  // disc is symmetric about every axis, so in an axis the footprint is
+  // symmetric about, an offset and its mirror support the same mounts and the
+  // sweep below need only cover half a tile. A snap is symmetric both ways; an
+  // openConnect slot reaches further toward its mouth than away from it, so it
+  // is symmetric only across the slide direction.
+  function footprintMirrors(flip) =
+    len([
+      for (v = mount_footprint)
+        if (!any([for (w = mount_footprint) approx(w, [flip.x * v.x, flip.y * v.y])])) 1
+    ]) == 0;
+
+  // How much rim the tightest mount at a given offset has to spare. Two
+  // offsets often support the same number of mounts while one of them leaves a
+  // mount all but touching the rim, so this is what separates them.
+  function mountClearanceAt(offset) =
+    let (
+      room = [
+        for (ij = mountIndicesAt(offset))
+          let (p = mountPositionAt(ij, offset))
+            fit_radius - max([for (v = mount_footprint) norm(p + v)])
+      ]
+    ) len(room) == 0 ? 0 : min(room);
+
+  // Maximal: sweep the offsets and keep the best count. Two tie-breaks follow,
+  // because the count alone leaves a lot of offsets level and some of them are
+  // plainly worse. First the roomiest - of the offsets that support the most
+  // mounts, the one whose tightest mount is furthest from the rim, which is
+  // what picks a symmetric arrangement over a lopsided one holding the same
+  // number. Then the one nearest centred, which settles what is left and is
+  // what makes Maximal come out at Centered rather than sliding the grid for
+  // no gain.
+  function maximalOffset() =
+    let (
+      last_x = footprintMirrors([-1, 1]) ? OG_TILE_SIZE / 2 : OG_TILE_SIZE - MOUNT_OFFSET_STEP,
+      last_y = footprintMirrors([1, -1]) ? OG_TILE_SIZE / 2 : OG_TILE_SIZE - MOUNT_OFFSET_STEP,
+      offsets = [
+        for (ox = [0 : MOUNT_OFFSET_STEP : last_x], oy = [0 : MOUNT_OFFSET_STEP : last_y])
+          [ox, oy]
+      ],
+      counts = [for (o = offsets) len(mountIndicesAt(o))],
+      best = max(counts),
+      most = [for (k = [0 : len(offsets) - 1]) if (counts[k] == best) offsets[k]],
+      room = [for (o = most) mountClearanceAt(o)],
+      roomiest = max(room),
+      finalists = [for (k = [0 : len(most) - 1]) if (approx(room[k], roomiest)) most[k]],
+      nearest = min([for (o = finalists) norm(o)])
+    ) [for (o = finalists) if (approx(norm(o), nearest)) o][0];
+
+  // Held back behind the ternary rather than computed and thrown away: the
+  // sweep is thousands of offsets, and a square base has no use for it.
+  mount_offset = !circularBase || mountAlignment == "Centered" ? [0, 0] : maximalOffset();
+  mount_indices = circularBase ? mountIndicesAt(mount_offset) : [];
+
+  function hasMount(i, j) = in_list([i, j], mount_indices);
+  function mountPosition(ij) = mountPositionAt(ij, mount_offset);
+
+  // Snap_Placement and Slot_Position, read off the supported positions instead
+  // of off a rectangle: a position is on an edge row when nothing sits above
+  // or below it, on an edge column when nothing sits either side, and a corner
+  // when both hold. On a full rectangular grid those pick out the same
+  // positions is_grid_pos_described() picks out, which is why one function can
+  // serve the snap vocabulary, the slot vocabulary and the lock vocabulary at
+  // once. Anything unrecognised - "None", notably - selects nothing.
+  function isEdgeRow(ij) = !hasMount(ij.x, ij.y - 1) || !hasMount(ij.x, ij.y + 1);
+  function isEdgeColumn(ij) = !hasMount(ij.x - 1, ij.y) || !hasMount(ij.x + 1, ij.y);
+  function isCorner(ij) = isEdgeRow(ij) && isEdgeColumn(ij);
+  function selectedMounts(description) = [
+    for (ij = mount_indices)
+      if (description == "All"
+        || (description == "Edges" && (isEdgeRow(ij) || isEdgeColumn(ij)))
+        || (description == "Edge Rows" && isEdgeRow(ij))
+        || (description == "Edge Columns" && isEdgeColumn(ij))
+        || (description == "Corners" && isCorner(ij))
+        || (description == "Top Corners" && isCorner(ij) && !hasMount(ij.x, ij.y + 1))
+        || (description == "Bottom Corners" && isCorner(ij) && !hasMount(ij.x, ij.y - 1))
+        || (description == "Staggered" && (ij.x + ij.y) % 2 == 0))
+        ij
+  ];
+
+  circular_mounts = circularBase
+    ? selectedMounts(openConnectMount ? slotPosition : snapPlacement)
+    : [];
+
+  if (circularBase) {
+    assert(len(mount_indices) > 0,
+      str("No ", openConnectMount ? "openConnect slot" : "openGrid snap",
+        " fits inside a ", disc_diameter, "mm circular base, so the holder would ",
+        "have no mount at all. Enlarge the cup holder, or set Base_Shape to Square."));
+
+    assert(len(circular_mounts) > 0,
+      str(openConnectMount ? "Slot_Position" : "Snap_Placement", " \"",
+        openConnectMount ? slotPosition : snapPlacement,
+        "\" selects none of the ", len(mount_indices),
+        " supported grid positions on this circular base, so the holder would have ",
+        "no mount. Pick another placement, or enlarge the cup holder."));
+
+    echo(str(
+      "opengrid_cupholder: circular base, ", disc_diameter, "mm disc, ",
+      len(circular_mounts), " of ", len(mount_indices), " supported grid positions mounted",
+      approx(mount_offset, [0, 0])
+        ? str(", grid centred on a mount",
+            mountAlignment == "Maximal" ? " - Maximal found no offset that supports more." : ".")
+        : str(", grid offset ", mount_offset, "mm from centred - centring it would support ",
+            len(mountIndicesAt([0, 0])), ".")
+    ));
+
+    if (cornerRefinementType != "None")
+      echo(str(
+        "opengrid_cupholder: Corner_Refinement_Type is \"", cornerRefinementType,
+        "\", but a disc has no corners to refine, so it is ignored on a circular base."
+      ));
+  }
 
   // Everything the openConnect mount needs of the base. These live in the branch
   // rather than carrying a !openConnectMount guard so that a failure reports the
@@ -325,13 +628,18 @@ module openGridCupholder(
         "mm. Raise Base_Thickness, or set Mount_Type to Snaps."));
 
     echo(str(
-      "opengrid_cupholder: openConnect mount, ", len(fitted_slots), " slots on a ",
-      units, "x", units, " grid over a ", base_size, "x", base_size, "mm base. ",
+      "opengrid_cupholder: openConnect mount, ",
+      circularBase ? len(circular_mounts) : len(fitted_slots), " slots on a ",
+      circularBase
+        ? str(disc_diameter, "mm circular base. ")
+        : str(units, "x", units, " grid over a ", base_size, "x", base_size, "mm base. "),
       "Each slot takes ", mount_slot_depth, "mm of the ", baseThickness,
       "mm base, leaving ", baseThickness - mount_slot_depth, "mm of floor under the cup."
     ));
 
-    if (len(fitted_slots) < len(requested_slots))
+    // Only the square base can drop a slot it asked for: the circular base
+    // never asks for one that does not fit, and reports what it supports above.
+    if (!circularBase && len(fitted_slots) < len(requested_slots))
       echo(str(
         "opengrid_cupholder: ", len(requested_slots) - len(fitted_slots), " of ",
         len(requested_slots), " slots do not fit inside the base outline and were ",
@@ -339,7 +647,7 @@ module openGridCupholder(
         "keeps clear of the corners."
       ));
 
-    assert(len(fitted_slots) > 0,
+    assert(circularBase || len(fitted_slots) > 0,
       "No openConnect slot fits inside the base outline, so the holder would have no mount. Reduce Corner_Refinement_Size, or enlarge the cup holder.");
   }
 
@@ -462,6 +770,71 @@ module openGridCupholder(
     }
   }
 
+  // openConnect slots for a circular base. openconnect_slot_grid() always
+  // centres a whole number of tiles on the model, so it can neither be offset
+  // nor thinned down to a circle - but a one-by-one grid is a single slot at
+  // the origin, and moving one of those into place says the same thing. It is
+  // the same call the square base makes, and it produces geometry identical to
+  // a slot in the middle of a larger grid: the library clips its slots to the
+  // whole grid rather than to their own tiles, and a slot never reaches past
+  // its own tile in the first place.
+  module circularMountSlots() {
+    locked = selectedMounts(slotLockDistribution);
+    down(baseThickness / 2)
+      for (ij = circular_mounts)
+        translate(mountPosition(ij))
+          openconnect_slot_grid(
+            slot_type="slot",
+            horizontal_grids=1,
+            vertical_grids=1,
+            slot_slide_direction=slotSlideDirection,
+            slot_position="All",
+            slot_lock_distribution=in_list(ij, locked) ? "All" : "None",
+            slot_lock_side=slotLockSide,
+            slot_entryramp_flip=slotEntryRampFlip,
+            excess_thickness=EPS
+          );
+  }
+
+  // Circular openConnect base: the disc under the cup with nothing standing
+  // off it, and the slots cut into the face that meets the board. Same shape
+  // and same frame as openConnectBase(), so the render below can hand either
+  // one the cup without knowing which it has.
+  module circularOpenConnectBase(anchor, orient, spin) {
+    $fn = Smoothing;
+    attachable(size=[disc_diameter, disc_diameter, baseThickness], anchor=anchor, orient=orient, spin=spin) {
+      difference() {
+        cyl(h=baseThickness, d=disc_diameter);
+        circularMountSlots();
+      }
+      children();
+    }
+  }
+
+  // Circular snap base: the same disc, with openGrid snaps standing off it.
+  // openGridFacade() draws its slab and its snaps together and has no way to
+  // be told about a round outline or an offset grid, so the disc places its
+  // own snaps - by the same attach(TOP, TOP) the facade uses, so a snap here
+  // is the facade's snap the facade's way up. Built the facade's way round
+  // too: the snaps stand off the local TOP and the render below turns the
+  // whole thing over, which is what keeps the two snap paths interchangeable.
+  module circularSnapBase(anchor, orient, spin) {
+    $fn = Smoothing;
+    snap_thickness = liteSnap ? 3.4 : 6.8;
+    total_thickness = baseThickness + snap_thickness;
+    attachable(size=[disc_diameter, disc_diameter, total_thickness], anchor=anchor, orient=orient, spin=spin) {
+      down(total_thickness / 2)
+        cyl(h=baseThickness, d=disc_diameter, anchor=BOTTOM) {
+          for (ij = circular_mounts)
+            color("lightblue")
+              translate(mountPosition(ij))
+                attach(TOP, TOP)
+                  openGridSnap(lite=liteSnap);
+        }
+      children();
+    }
+  }
+
   // Render: the base resting on the Z = 0 plane, board-facing side down, with
   // the cup standing on top of it. cupBody already stands the right way up, so
   // both mounts only ever move it - position() places it and nothing rotates
@@ -471,15 +844,23 @@ module openGridCupholder(
   // would come out mirrored, and mirrored differently per mount.
   // The 0.1 in each branch is overlap into the base, so the cup and the base
   // share a volume rather than meeting across a face.
-  if (openConnectMount) {
+  if (openConnectMount && circularBase) {
+    circularOpenConnectBase(anchor=BOTTOM)
+      position(TOP) down(0.1) cupBody(anchor=BOTTOM);
+  } else if (openConnectMount) {
     openConnectBase(anchor=BOTTOM)
       position(TOP) down(0.1) cupBody(anchor=BOTTOM);
+  } else if (circularBase) {
+    // Both snap bases draw their snaps on their own TOP, so the base is turned
+    // over to put them against the board; the cup then stands on what is now
+    // its upper face, and the snap tips land on Z = 0 like the openConnect
+    // base does. Everything inside that xrot(180) is upside down, the cup
+    // included, so the cup gets an xrot(180) of its own to cancel it and stand
+    // up again. The square snap branch below reads the same way, and for the
+    // same reason.
+    xrot(180) circularSnapBase(anchor=TOP)
+      position(BOTTOM) xrot(180) down(0.1) cupBody(anchor=BOTTOM);
   } else {
-    // The facade draws its snaps on its own TOP, so it is turned over to put
-    // them against the board; the cup then stands on what is now its upper
-    // face, and the snap tips land on Z = 0 like the openConnect base does.
-    // Everything inside that xrot(180) is upside down, the cup included, so
-    // the cup gets an xrot(180) of its own to cancel it and stand up again.
     xrot(180) openGridFacade(
       xUnits=units,
       yUnits=units,
