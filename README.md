@@ -28,10 +28,6 @@ tools/
 docs/
 ```
 
-`git submodule update` is deliberately not `--recursive` above: QuackWorks
-carries a gitlink it does not declare in its own `.gitmodules`, so recursing
-into it fails. Nothing here depends on that nested repository.
-
 ## Using the Models
 
 Open any `.scad` file directly in OpenSCAD. Each part file renders a preview by default and exposes parameters via the built-in Customizer.

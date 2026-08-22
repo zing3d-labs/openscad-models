@@ -51,19 +51,6 @@ All named measurements (offsets, distances, thicknesses) must be defined as posi
 
 External libraries carry their own licenses, and some are more restrictive than others. Before depending on a new external file, check its license against the repository license and record the conclusion in the part's file header — see `opengrid/parts/opengrid_inbox.scad` for the pattern.
 
-### Why QuackWorks points at a fork
-
-QuackWorks is pinned to [jhuizingh/QuackWorks](https://github.com/jhuizingh/QuackWorks), not to [upstream](https://github.com/AndyLevesque/QuackWorks), because it carries two openGrid snap fixes that upstream does not have yet:
-
-- **Lite snap connectivity** — increases the click hole bridge thickness so lite snaps stay connected.
-- **Nub overlap** — overlaps the nub geometry with the core body so snaps do not split into separate bodies in slicers.
-
-Both touch `openGrid/opengrid-snap.scad`, which `opengrid_facade.scad` and `opengrid_dual_sided_snap.scad` depend on. They are proposed upstream in [PR #127](https://github.com/AndyLevesque/QuackWorks/pull/127) and remain unmerged.
-
-The pin tracks the `zing3d-integration` branch, which exists to give those commits a stable home. It is deliberately *not* the PR branch `fix/lite-snap-click-hole-bridge`: a PR branch can be deleted on merge, rebased, or force-pushed, any of which would orphan the pinned commit and break the submodule. `zing3d-integration` is only ever moved on purpose.
-
-The branch is upstream's `main` plus those two commits. When upstream moves, rebase `zing3d-integration` onto it and bump the pin here. Upstream has been dormant — three commits in the nine months to 2026-08 — so this is rare. If the fixes land upstream, the fork and this note can go away.
-
 ## Tests
 
 Each part may carry a sidecar `<part>.tests.yaml` beside it, declaring **feature

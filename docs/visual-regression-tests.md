@@ -196,10 +196,7 @@ git -C /tmp/base submodule update --init
   --result /tmp/vr/opengrid_cupholder/result.json --out /tmp/vr/comment.md
 ```
 
-`OPENSCAD` selects the binary if `openscad` is not on `PATH`. Note that
-`git submodule update` is deliberately **not** `--recursive`: QuackWorks carries
-a gitlink it does not declare in its own `.gitmodules`, and recursing into it
-fails.
+`OPENSCAD` selects the binary if `openscad` is not on `PATH`.
 
 ## The OpenSCAD pin
 
