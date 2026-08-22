@@ -17,6 +17,7 @@ openGrid uses a standardized 28mm grid with a snap connector spec that keeps acc
 
 ## Kits
 
-| Directory | Description |
-|-----------|-------------|
-| `kits/grid_basket/` | Modular snap-together storage basket |
+| File | Description |
+|------|-------------|
+| `kits/grid_basket/grid_basket.scad` | Modular snap-together storage basket — geometry and printable plate modules |
+| `kits/grid_basket/mw_grid_basket.scad` | Publishing entry point for the basket: multi-plate 3MF output ([convention](../ARCHITECTURE.md)) |
