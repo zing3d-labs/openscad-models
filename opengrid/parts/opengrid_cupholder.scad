@@ -407,6 +407,68 @@ module openGridCupholder(
   // Depth an openConnect slot eats out of the base, from the board-facing face.
   mount_slot_depth = struct_val(ocslot_cfg(), "total_height");
 
+  // Turning the slot cutter over - see mountSlots() for why it has to be
+  // turned at all, and this for why it is turned about THIS axis.
+  //
+  // A cutter that has to come out the other way up can be got there two ways,
+  // and they are not the same part. zflip() is a mirror: it reverses the
+  // cutter's handedness, and the connector head is chiral, so a mirrored
+  // cutter is one no real connector fits. The head's two lock detents are cut
+  // by different code - the left one sheared over by nub_taperin, the right
+  // one straight, because bridging does not print over a tapered nub - and a
+  // mirrored slot presents its nub to the wrong one of them. Measured against
+  // openconnect_head(head_type="head", add_nubs="Both"), which is the head
+  // openconnect_screw() actually carries: a turned cutter takes it with the
+  // difference empty, a mirrored one leaves 74-96 facets of the head standing
+  // in the nub. So the cutter is TURNED, with rot(), and never mirrored.
+  //
+  // That empty difference is exact at Slot_Slide_Direction "Up". The other
+  // three leave the same 74-96 facets in the nub, and that is the library's
+  // own doing rather than the turn's: openconnect_slot_grid() used entirely on
+  // its own terms, with no turn of ours anywhere, leaves it for "Down", "Left"
+  // and "Right" too, because the library reaches those three by mirroring its
+  // "Up" slot. It squeezes rather than blocks - the nub is a detent, not the
+  // retainer - and the retaining lip this is all for comes out identical in
+  // all four. Do not read it as something the turn introduced.
+  //
+  // A turn is about an axis, and the axis is the one the slot slides along,
+  // because that is the axis the cutter is symmetric across:
+  //
+  //   - The direction table in the header survives. A turn about the slide
+  //     axis leaves the slide axis alone, so "Up" still lands on +Y and lines
+  //     up with a handle slot at 90 degrees. Turning about the other axis
+  //     would reverse it, and asking the library for the opposite name instead
+  //     is no escape - its "Down" IS a mirror of its "Up" (verified: the two
+  //     differ by yflip alone), so that route arrives back at a mirrored part.
+  //   - Every fit test survives. slot_cutter_outline and slot_footprint below
+  //     are symmetric across the slide direction and only across it, so a turn
+  //     about that axis leaves the outline the circular base fits against
+  //     exactly where it was.
+  //
+  // What the turn does reverse is the axis across the slide, so two things are
+  // handed back below: the side the nubs sit on, and - on the square base,
+  // where the turn is about the whole grid rather than about each slot - the
+  // row a distribution names.
+  slot_slides_along_x = slotSlideDirection == "Left" || slotSlideDirection == "Right";
+  slot_flip_axis = slot_slides_along_x ? RIGHT : BACK;
+
+  // The library is asked for the nubs on the far side from the one they are
+  // wanted on, because the turn carries them across. Both sides pair exactly
+  // with the head - each detent receives the nub cut by the same code - so
+  // this costs nothing but the swap.
+  turned_lock_side = slotLockSide == "Left" ? "Right" : "Left";
+
+  // A turn about X reverses the grid's rows, so a distribution that names a
+  // row is asked for by the other name. Only the square base needs this: the
+  // circular one turns each slot about its own centre and never moves a mount.
+  // "Staggered" has no such handle - on an even grid the turn takes it to the
+  // complementary staggered set, which is the same pattern offset by a tile.
+  turned_lock_distribution =
+    !slot_slides_along_x ? slotLockDistribution
+    : slotLockDistribution == "Top Corners" ? "Bottom Corners"
+    : slotLockDistribution == "Bottom Corners" ? "Top Corners"
+    : slotLockDistribution;
+
   // Outline of the base, used both to draw it and to keep the slot grid inside
   // it: openconnect_slot_grid() drops any slot whose footprint - the slot plus
   // the wall the library keeps around it - does not fit within this region, so
@@ -729,26 +791,42 @@ module openGridCupholder(
   }
 
   // openConnect slots, cut into the board-facing underside of the base - the
-  // same face the snaps would stand on. The library builds its grid opening
-  // toward its own BOTTOM and extends upward from there, which is already the
-  // way round this base needs, so the grid sits on the underside untransformed
-  // and eats mount_slot_depth up into the slab. Untransformed also means the
-  // library's frame is this base's frame, which is what lets the header state
-  // the slide directions as plain +X / +Y axes.
+  // same face the snaps would stand on, and the reason the grid has to be
+  // turned over to get there.
+  //
+  // The library builds its grid the way a shelf or a plate uses it: wide end
+  // at the grid's own BOTTOM, narrowing upward, and the mount face at the
+  // grid's TOP with the material below it - see the attach(TOP, TOP,
+  // inside=true) in mitufy's own openconnect_plate.scad. This base is the
+  // other way up. Its material is ABOVE the face that meets the board, so the
+  // grid has to be turned over before it is sunk into the underside, and the
+  // grid is anchored by its TOP so the turn swings it about the mouth and
+  // leaves that mouth on the board-facing face.
+  //
+  // Untransformed, the wide end lands at the board face: an open pocket with
+  // sloped walls, nothing to capture the connector's flange, and the cutter's
+  // excess buried in the slab instead of breaking out through it. Turned, the
+  // narrow end is at the face and the retaining lip is left at the mouth,
+  // which is what holds the holder on.
+  //
+  // slot_flip_axis carries the reasoning for turning rather than mirroring,
+  // and for turning about the slide axis in particular.
   module mountSlots() {
     down(baseThickness / 2)
-      openconnect_slot_grid(
-        slot_type="slot",
-        horizontal_grids=units,
-        vertical_grids=units,
-        slot_slide_direction=slotSlideDirection,
-        slot_position=slotPosition,
-        slot_lock_distribution=slotLockDistribution,
-        slot_lock_side=slotLockSide,
-        slot_entryramp_flip=slotEntryRampFlip,
-        limit_region=[base_outline],
-        excess_thickness=EPS
-      );
+      rot(180, v=slot_flip_axis)
+        openconnect_slot_grid(
+          slot_type="slot",
+          horizontal_grids=units,
+          vertical_grids=units,
+          slot_slide_direction=slotSlideDirection,
+          slot_position=slotPosition,
+          slot_lock_distribution=turned_lock_distribution,
+          slot_lock_side=turned_lock_side,
+          slot_entryramp_flip=slotEntryRampFlip,
+          limit_region=[base_outline],
+          excess_thickness=EPS,
+          anchor=TOP
+        );
   }
 
   // openConnect base: the same footprint and corner refinement the snap facade
@@ -778,22 +856,30 @@ module openGridCupholder(
   // a slot in the middle of a larger grid: the library clips its slots to the
   // whole grid rather than to their own tiles, and a slot never reaches past
   // its own tile in the first place.
+  //
+  // Turned over the same way and for the same reason as mountSlots(), but from
+  // inside the translate, so each slot swings about its own mouth and the
+  // mounts stay exactly where mountPosition() put them. That is also why this
+  // one has no turned_lock_distribution to apply: nothing here is picked out
+  // by row, so the turn has no row to carry across.
   module circularMountSlots() {
     locked = selectedMounts(slotLockDistribution);
     down(baseThickness / 2)
       for (ij = circular_mounts)
         translate(mountPosition(ij))
-          openconnect_slot_grid(
-            slot_type="slot",
-            horizontal_grids=1,
-            vertical_grids=1,
-            slot_slide_direction=slotSlideDirection,
-            slot_position="All",
-            slot_lock_distribution=in_list(ij, locked) ? "All" : "None",
-            slot_lock_side=slotLockSide,
-            slot_entryramp_flip=slotEntryRampFlip,
-            excess_thickness=EPS
-          );
+          rot(180, v=slot_flip_axis)
+            openconnect_slot_grid(
+              slot_type="slot",
+              horizontal_grids=1,
+              vertical_grids=1,
+              slot_slide_direction=slotSlideDirection,
+              slot_position="All",
+              slot_lock_distribution=in_list(ij, locked) ? "All" : "None",
+              slot_lock_side=turned_lock_side,
+              slot_entryramp_flip=slotEntryRampFlip,
+              excess_thickness=EPS,
+              anchor=TOP
+            );
   }
 
   // Circular openConnect base: the disc under the cup with nothing standing
