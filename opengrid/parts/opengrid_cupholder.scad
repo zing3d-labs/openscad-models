@@ -62,7 +62,8 @@
   rule for which positions are supported:
 
       A grid position takes a mount when everything that mount needs of the
-      base lies wholly inside the disc.
+      base lies wholly inside the disc - and, for a slot, with a band of solid
+      material still left between the cut and the rim.
 
   A partially covered tile is therefore not a special case: a position whose
   mount would hang over the rim is dropped, whatever fraction of the tile the
@@ -71,11 +72,18 @@
   What "everything that mount needs" comes to differs by mount, and for
   openConnect it is more than the footprint the library publishes. That
   footprint covers the slot pocket and the 2mm wall around it, but the cutter's
-  lead-in ramp runs 9.4mm further toward the mouth, and a disc has no tile edge
-  to stop it the way a slab does - so the test takes the published footprint
-  and the cutter's own outline together. A snap is tested on its full 25.58mm
-  square, the 24.8mm core plus the click nubs standing proud of it, because a
-  nub cut off at the rim is a nub that no longer clicks.
+  lead-in ramp runs 9.4mm further toward the mouth - so the test takes the
+  published footprint and the cutter's own outline together. A snap is tested
+  on its full 25.58mm square, the 24.8mm core plus the click nubs standing
+  proud of it, because a nub cut off at the rim is a nub that no longer clicks.
+
+  A slot is held back further still. A snap only has to be whole, but a slot is
+  a cut, and a cut that reaches the outside of the base leaves nothing there to
+  print - so every slot keeps a band of solid material, MIN_SLOT_EDGE_WALL,
+  between itself and the outside. That applies to both bases: on a square base
+  it is what stops a refined corner being eaten through by a slot near it, and
+  on a disc it is what stops a slot approaching the curved rim at a tangent and
+  leaving a sliver.
 
   A disc is not tied to the grid the way the slab is, so where the grid falls
   under it is a free choice, and Mount_Alignment makes it:
@@ -114,7 +122,9 @@
   rectangular grid that picks out exactly what those options pick out today.
 
   Corner_Refinement_Type and Corner_Refinement_Size are square-base settings.
-  A disc has no corners, so they are ignored there.
+  A disc has no corners, so they are ignored there. On a square base they do
+  cost slots: a refinement large enough to reach into a corner tile takes that
+  corner's slot with it, and the echo says how many were dropped.
 
   ---------------------------------------------------------------------------
   Licensing
@@ -287,6 +297,23 @@ Smoothing = 150; // [10:10:300]
 // cup keeps a continuous floor.
 MIN_BASE_WALL = 0.8;
 
+// Solid material kept between an openConnect slot cut and the outside of the
+// base, all the way round it. The same 0.8mm as MIN_BASE_WALL above, and
+// deliberately a constant of its own rather than that one reused: MIN_BASE_WALL
+// is the floor UNDER a slot and feeds the Base_Thickness assert, this is the
+// band BESIDE it and decides which slots get cut at all. The two answer to
+// different things - one to how stiff the cup floor has to be, the other to how
+// thin a wall the printer will hold - so moving either should not silently move
+// the other.
+//
+// 0.8 is also not a number picked out of the air: it is the wall the library
+// already leaves on its own. A slot cutter stops at y = -13.2 in its own 28mm
+// tile, which is 0.8mm short of the tile edge at the mouth end. That is what
+// lets a square base with no corner refinement sit exactly at this limit and
+// lose no slot, and it means raising this number costs every slot on an edge
+// row - so raise it only on purpose.
+MIN_SLOT_EDGE_WALL = 0.8;
+
 // What an openGrid snap needs clear on a circular base: 25.58mm square. That
 // is openGridSnap's 24.8mm core (its own w, in
 // external/QuackWorks/openGrid/opengrid-snap.scad) plus the click nubs, which
@@ -295,16 +322,22 @@ MIN_BASE_WALL = 0.8;
 // use. A nub the rim cuts through is a nub that no longer clicks.
 SNAP_FOOTPRINT = 25.58;
 
-// What an openConnect slot needs clear on a circular base, beyond the footprint
-// the library publishes. That footprint is the slot pocket plus its 2mm wall
-// and stops at y = -3.8; the cutter runs on to y = -13.2 for the lead-in ramp,
-// and 13.004mm out to the side the ramp is offset toward. A slab stops the
-// ramp at the tile edge and a disc does not, so the ramp has to be in the test
-// or a slot near the rim breaks through it. Measured off projection() of
-// openconnect_slot_grid() at one by one; re-measure if the pinned
-// external/opengrid-projects moves. Stated symmetrically in x because
+// The ground an openConnect slot cutter actually covers, which is more than the
+// footprint the library publishes. That footprint is the slot pocket plus its
+// 2mm wall and stops at y = -3.8; the cutter runs on to y = -13.2 for the
+// lead-in ramp, and 13.004mm out to the side the ramp is offset toward. Both
+// bases need it. Neither the tile edge nor the grid edge stops the ramp - the
+// cutter is already inside its own tile on every side - so nothing but this
+// outline says where the cut really reaches, and a slot tested on the footprint
+// alone can break out through a refined corner or a curved rim. Measured off
+// projection() of openconnect_slot_grid() at one by one; re-measure if the
+// pinned external/opengrid-projects moves. Stated symmetrically in x because
 // Slot_Entry_Ramp_Flip mirrors the cutter, and flipping a ramp should not
-// rearrange every slot on the base.
+// rearrange every slot on the base. The real cutter runs -13.004 to 8.6 in x,
+// so this over-states it by 4.4mm on one side and is knowingly conservative:
+// where a refined corner bites into just one of a pair of corner slots, both
+// are dropped. That is the price of a base whose slots do not move when a
+// checkbox is ticked, and of a base that stays symmetric when it is.
 SLOT_CUTTER_BOUNDS = [[-13.004, -13.2], [13.004, 9]];
 
 // Step of the circular base's Maximal offset search, in mm. The search is a
@@ -442,8 +475,9 @@ module openGridCupholder(
   //     differ by yflip alone), so that route arrives back at a mirrored part.
   //   - Every fit test survives. slot_cutter_outline and slot_footprint below
   //     are symmetric across the slide direction and only across it, so a turn
-  //     about that axis leaves the outline the circular base fits against
-  //     exactly where it was.
+  //     about that axis leaves the outline either base fits against exactly
+  //     where it was - which is also what lets the square base's own test be
+  //     written in the grid's frame and still answer for the base's.
   //
   // What the turn does reverse is the axis across the slide, so two things are
   // handed back below: the side the nubs sit on, and - on the square base,
@@ -469,34 +503,92 @@ module openGridCupholder(
     : slotLockDistribution == "Bottom Corners" ? "Top Corners"
     : slotLockDistribution;
 
-  // Outline of the base, used both to draw it and to keep the slot grid inside
-  // it: openconnect_slot_grid() drops any slot whose footprint - the slot plus
-  // the wall the library keeps around it - does not fit within this region, so
-  // corner refinement can never leave a slot cut open at the edge.
-  base_outline = rect([base_size, base_size],
-    rounding=(cornerRefinementType == "Fillet" ? cornerRefinementSize : 0),
-    chamfer=(cornerRefinementType == "Chamfer" ? cornerRefinementSize : 0));
+  // Outline of the base, and the same outline held back by a given inset - the
+  // band of material a cut has to stay behind. One function rather than a shape
+  // and a separate approximation of it, because both refinements survive an
+  // inset exactly: eroding a rounded corner by b leaves the same arc b smaller,
+  // and eroding a 45-degree chamfer slides its face b inward along its own
+  // normal, which shortens the leg by b(2 - sqrt(2)). Clamped at zero, since a
+  // corner cannot be refined by a negative amount - an inset deeper than the
+  // refinement simply leaves a square corner.
+  function baseOutline(inset = 0) =
+    let (refined = max(0, cornerRefinementSize -
+      inset * (cornerRefinementType == "Chamfer" ? 2 - sqrt(2) : 1)))
+      rect([base_size - inset * 2, base_size - inset * 2],
+        rounding=(cornerRefinementType == "Fillet" ? refined : 0),
+        chamfer=(cornerRefinementType == "Chamfer" ? refined : 0));
 
-  // Which slots the grid will actually cut, evaluated the same way the library
-  // does, so the echo below can report what the base could not accommodate.
-  // The footprint turns with the slide direction, and openconnect_slot_grid()
-  // keeps that mapping to itself, so it is repeated here to stay in step.
+  base_outline = baseOutline();
+
+  // What an openConnect slot needs clear of the base. Two outlines, because the
+  // library publishes one and cuts with another:
+  //
+  //   slot_footprint       the slot pocket plus the 2mm wall the library keeps
+  //                        around it - the shape openconnect_slot_grid() tests
+  //                        against limit_region.
+  //   slot_cutter_outline  the ground the cutter actually covers, lead-in ramp
+  //                        included. Bigger than the footprint toward the mouth
+  //                        and out to the ramp side, and the only one of the two
+  //                        that can break the outside of the base.
+  //
+  // Both turn with the slide direction, and openconnect_slot_grid() keeps that
+  // mapping to itself, so it is repeated here to stay in step. Both are convex,
+  // which is what lets every test below settle a shape by its vertices alone.
   slot_facing =
     slotSlideDirection == "Left" ? 90
     : slotSlideDirection == "Right" ? -90
     : slotSlideDirection == "Down" ? 180
     : 0;
   slot_footprint = zrot(slot_facing, struct_val(ocslot_cfg(), "footprint"));
+  slot_cutter_outline = zrot(slot_facing, [
+    [SLOT_CUTTER_BOUNDS[0].x, SLOT_CUTTER_BOUNDS[0].y],
+    [SLOT_CUTTER_BOUNDS[1].x, SLOT_CUTTER_BOUNDS[0].y],
+    [SLOT_CUTTER_BOUNDS[1].x, SLOT_CUTTER_BOUNDS[1].y],
+    [SLOT_CUTTER_BOUNDS[0].x, SLOT_CUTTER_BOUNDS[1].y],
+  ]);
+
+  // Which slots the square base will actually cut. A slot has to meet both of:
+  //
+  //   - its footprint inside base_outline - the library's own rule, applied by
+  //     openconnect_slot_grid() through limit_region, which keeps the 2mm wall
+  //     the library wants around a slot;
+  //   - its cutter outline inside that outline held back by MIN_SLOT_EDGE_WALL,
+  //     which is what leaves a continuous band of material between the cut and
+  //     the outside of the base.
+  //
+  // The second rule is this file's own. openconnect_slot_grid() cannot be told
+  // about it - limit_region only ever tests the footprint - so the slots it
+  // rejects are handed over as except_slot_pos instead, which is why the
+  // positions are kept here as grid indices as well as centres.
+  //
+  // The footprint rule alone is not enough, and the shape of its failure is
+  // worth stating: the footprint stops 9.4mm short of the cutter at the mouth
+  // end, so a corner refinement can eat away exactly the ground the lead-in ramp
+  // runs over while the footprint still reports the slot as fitting. At the
+  // default 5mm fillet on a 112mm base that left two corner slots cutting
+  // 0.8mm out through the rounded corner, with no material between the cut and
+  // the outside at all.
+  //
+  // The test is written in the GRID's frame rather than the base's, because
+  // except_slot_pos names grid indices and mountSlots() turns the whole grid
+  // over afterwards. The turn is a half turn about an axis lying in the base
+  // plane, and both a square base outline and the deliberately symmetric cutter
+  // envelope come through it unchanged, so the two frames agree on which slots
+  // fit and the indices mean the same thing on either side of the turn.
+  slot_band_outline = baseOutline(MIN_SLOT_EDGE_WALL);
+
+  function slotFits(cp) =
+    is_pos_shape_in_region(cp=cp, footprint=slot_footprint, limit_region=[base_outline])
+      && is_pos_shape_in_region(cp=cp, footprint=slot_cutter_outline,
+        limit_region=[slot_band_outline]);
+
   requested_slots = [
     for (i = [0 : units - 1], j = [0 : units - 1])
       if (is_grid_pos_described(i, j, units, units, slotPosition))
-        [-(units - i * 2 - 1) * OG_TILE_SIZE / 2, (units - j * 2 - 1) * OG_TILE_SIZE / 2]
+        [[i, j], [-(units - i * 2 - 1) * OG_TILE_SIZE / 2, (units - j * 2 - 1) * OG_TILE_SIZE / 2]]
   ];
-  fitted_slots = [
-    for (cp = requested_slots)
-      if (is_pos_shape_in_region(cp=cp, footprint=slot_footprint, limit_region=[base_outline]))
-        cp
-  ];
+  fitted_slots = [for (s = requested_slots) if (slotFits(s[1])) s[1]];
+  dropped_slots = [for (s = requested_slots) if (!slotFits(s[1])) s[0]];
 
   // -------------------------------------------------------------------------
   // Circular base. See the header for the rule these all serve: a grid
@@ -515,36 +607,38 @@ module openGridCupholder(
   // that is actually printed instead of the circle it stands in for.
   fit_radius = disc_diameter / 2 * cos(180 / Smoothing);
 
-  // Everything an openConnect slot needs clear: the published footprint and the
-  // cutter's own outline, turned together to face the slide direction. They are
+  // The radius mounts are actually fitted against. A snap stands off the base
+  // and takes nothing out of it, so it is fitted to the rim itself and only has
+  // to be whole. An openConnect slot is a cut, so it is held MIN_SLOT_EDGE_WALL
+  // back from the rim - and a disc needs that held back explicitly more than a
+  // slab does, because the rim curves away from a straight-sided cutter instead
+  // of meeting it square: a slot that merely reaches the rim leaves a sliver
+  // rather than an edge.
+  mount_fit_radius = fit_radius - (openConnectMount ? MIN_SLOT_EDGE_WALL : 0);
+
+  // The outline the selected mount needs clear, in the base's own frame. For a
+  // slot that is the published footprint and the cutter's own outline together,
   // simply concatenated rather than hulled - the test below asks whether every
   // vertex is inside the disc, and the disc is convex, so a set of points
-  // answers for its hull.
-  slot_cutter_outline = zrot(slot_facing, [
-    [SLOT_CUTTER_BOUNDS[0].x, SLOT_CUTTER_BOUNDS[0].y],
-    [SLOT_CUTTER_BOUNDS[1].x, SLOT_CUTTER_BOUNDS[0].y],
-    [SLOT_CUTTER_BOUNDS[1].x, SLOT_CUTTER_BOUNDS[1].y],
-    [SLOT_CUTTER_BOUNDS[0].x, SLOT_CUTTER_BOUNDS[1].y],
-  ]);
-
-  // The outline the selected mount needs clear, in the base's own frame. A snap
-  // is square and faces nowhere, so it needs no turning.
+  // answers for its hull. A snap is square and faces nowhere, so it needs no
+  // turning.
   mount_footprint = openConnectMount
     ? concat(slot_footprint, slot_cutter_outline)
     : rect([SNAP_FOOTPRINT, SNAP_FOOTPRINT]);
 
   // No position further out than this can hold a mount, so the sweep below has
   // somewhere to stop.
-  mount_reach = ceil((fit_radius + max([for (v = mount_footprint) norm(v)])) / OG_TILE_SIZE);
+  mount_reach = ceil((mount_fit_radius + max([for (v = mount_footprint) norm(v)])) / OG_TILE_SIZE);
 
-  // The rule itself: every vertex of the footprint inside the disc. The
+  // The rule itself: every vertex of the footprint inside mount_fit_radius. The
   // footprint is convex and the disc is convex, so the vertices settle it for
   // the edges between them too - which is also why is_pos_shape_in_region()
   // can test vertices alone on the square base.
   function mountFits(px, py) =
     len([
       for (v = mount_footprint)
-        if ((px + v.x) * (px + v.x) + (py + v.y) * (py + v.y) > fit_radius * fit_radius) 1
+        if ((px + v.x) * (px + v.x) + (py + v.y) * (py + v.y)
+          > mount_fit_radius * mount_fit_radius) 1
     ]) == 0;
 
   // Supported positions at a given grid offset, as grid indices - x to the
@@ -556,7 +650,7 @@ module openGridCupholder(
   function mountIndicesAt(offset) = [
     for (i = [-mount_reach : mount_reach], j = [-mount_reach : mount_reach])
       let (px = i * OG_TILE_SIZE - offset.x, py = j * OG_TILE_SIZE - offset.y)
-        if (px * px + py * py <= fit_radius * fit_radius && mountFits(px, py))
+        if (px * px + py * py <= mount_fit_radius * mount_fit_radius && mountFits(px, py))
           [i, j]
   ];
 
@@ -583,7 +677,7 @@ module openGridCupholder(
       room = [
         for (ij = mountIndicesAt(offset))
           let (p = mountPositionAt(ij, offset))
-            fit_radius - max([for (v = mount_footprint) norm(p + v)])
+            mount_fit_radius - max([for (v = mount_footprint) norm(p + v)])
       ]
     ) len(room) == 0 ? 0 : min(room);
 
@@ -704,13 +798,17 @@ module openGridCupholder(
     if (!circularBase && len(fitted_slots) < len(requested_slots))
       echo(str(
         "opengrid_cupholder: ", len(requested_slots) - len(fitted_slots), " of ",
-        len(requested_slots), " slots do not fit inside the base outline and were ",
-        "dropped. Reduce Corner_Refinement_Size, or pick a Slot_Position that ",
-        "keeps clear of the corners."
+        len(requested_slots), " slots cannot be cut with ", MIN_SLOT_EDGE_WALL,
+        "mm of material left between the cut and the outside of the base, and ",
+        "were dropped. Reduce Corner_Refinement_Size, turn Corner_Refinement_Type ",
+        "off, or pick a Slot_Position that keeps clear of the corners."
       ));
 
     assert(circularBase || len(fitted_slots) > 0,
-      "No openConnect slot fits inside the base outline, so the holder would have no mount. Reduce Corner_Refinement_Size, or enlarge the cup holder.");
+      str("No openConnect slot can be cut with ", MIN_SLOT_EDGE_WALL,
+        "mm of material left between the cut and the outside of the base, so the ",
+        "holder would have no mount. Reduce Corner_Refinement_Size, turn ",
+        "Corner_Refinement_Type off, or enlarge the cup holder."));
   }
 
   // Cross-section of one slot cutter, drawn across the slot (X) and along it
@@ -811,6 +909,12 @@ module openGridCupholder(
   //
   // slot_flip_axis carries the reasoning for turning rather than mirroring,
   // and for turning about the slide axis in particular.
+  //
+  // Which slots get cut is settled twice over, by the two rules slotFits()
+  // spells out: limit_region hands the library its own footprint rule, and
+  // except_slot_pos hands it the positions whose cutter would come closer than
+  // MIN_SLOT_EDGE_WALL to the outside of the base, which is a rule the library
+  // has no way to express.
   module mountSlots() {
     down(baseThickness / 2)
       rot(180, v=slot_flip_axis)
@@ -824,6 +928,7 @@ module openGridCupholder(
           slot_lock_side=turned_lock_side,
           slot_entryramp_flip=slotEntryRampFlip,
           limit_region=[base_outline],
+          except_slot_pos=dropped_slots,
           excess_thickness=EPS,
           anchor=TOP
         );
