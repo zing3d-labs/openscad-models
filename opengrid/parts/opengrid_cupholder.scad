@@ -85,6 +85,17 @@
   on a disc it is what stops a slot approaching the curved rim at a tangent and
   leaving a sliver.
 
+  A slot that cannot keep that band is not simply lost. Most of the cutter's
+  reach toward the mouth is the entry the connector head drops into, and the
+  head will still go in through a shorter one, so such a slot is offered
+  SLOT_ENTRY_TRIM off its entry and kept if that is enough. The choice is
+  between two lengths and no others - whole, or short by that much - and whole
+  is always tried first, because a full entry gives the most room to line the
+  connector up by hand. A slot that still does not fit is dropped, and the echo
+  says how many were trimmed and how many went.
+
+  Corner_Refinement_Type and Corner_Refinement_Size are square-base settings.
+
   A disc is not tied to the grid the way the slab is, so where the grid falls
   under it is a free choice, and Mount_Alignment makes it:
 
@@ -121,10 +132,9 @@
   has none to either side, and a corner when both are true. On a full
   rectangular grid that picks out exactly what those options pick out today.
 
-  Corner_Refinement_Type and Corner_Refinement_Size are square-base settings.
-  A disc has no corners, so they are ignored there. On a square base they do
-  cost slots: a refinement large enough to reach into a corner tile takes that
-  corner's slot with it, and the echo says how many were dropped.
+  A disc has no corners, so they are ignored there. On a square base a
+  refinement that reaches into a corner tile costs that corner's slot its full
+  entry first and then, if it reaches far enough, the slot itself.
 
   ---------------------------------------------------------------------------
   Licensing
@@ -322,6 +332,36 @@ MIN_SLOT_EDGE_WALL = 0.8;
 // use. A nub the rim cuts through is a nub that no longer clicks.
 SNAP_FOOTPRINT = 25.58;
 
+// How much is cut off the mouth end of an openConnect slot's entry - the wide
+// flared end the connector head drops into - when a slot needs to be pulled
+// back from the outside of the base. Nothing is trimmed unless it buys a slot
+// that would otherwise be dropped, and a slot that still does not fit at this
+// trim is dropped rather than trimmed further: the entry is either whole or
+// short by this much, never something in between, so a base never carries three
+// different slots.
+//
+// 3.0mm, settled by printing it rather than by measuring it. A ladder of test
+// coupons at 0 to 4mm in 0.5 steps all accepted a real connector, so the limit
+// is not whether the head fits but how much slop there is to get it in: at 4.0
+// the head has to be aligned near perfectly across the slot, while at 3.0 it
+// still drops in with the head pushed hard to one side, which is how it is
+// actually seated by hand. Below 3.0 the slop grows further, which is why this
+// is a ceiling and not a default - a slot that does not need it does not get
+// it.
+//
+// The 9.4mm of entry the cutter has past its footprint is 0.8mm of
+// OCSLOT_ONRAMP_CLEARANCE plus the opening the head's 10.6mm flange drops
+// through, so 3.0 spends the clearance and 2.2mm of that opening. The flange's
+// corners are chamfered, which is what lets it in through a shorter one.
+SLOT_ENTRY_TRIM = 3.0;
+
+// How far an entry-trim strip runs past the mouth end of the cutter it shortens.
+// Only has to be more than nothing - the strip has to reach past the cutter for
+// the difference to leave a clean face rather than a zero-thickness skin - and
+// less than the 5.8mm of clear tile between one cutter's mouth and the back of
+// the cutter in the next tile along, or a strip would shorten its neighbour too.
+SLOT_TRIM_OVERRUN = 1;
+
 // The ground an openConnect slot cutter actually covers, which is more than the
 // footprint the library publishes. That footprint is the slot pocket plus its
 // 2mm wall and stops at y = -3.8; the cutter runs on to y = -13.2 for the
@@ -336,8 +376,10 @@ SNAP_FOOTPRINT = 25.58;
 // rearrange every slot on the base. The real cutter runs -13.004 to 8.6 in x,
 // so this over-states it by 4.4mm on one side and is knowingly conservative:
 // where a refined corner bites into just one of a pair of corner slots, both
-// are dropped. That is the price of a base whose slots do not move when a
-// checkbox is ticked, and of a base that stays symmetric when it is.
+// are treated as bitten. That is the price of a base whose slots do not move
+// when a checkbox is ticked, and of a base that stays symmetric when it is -
+// and since SLOT_ENTRY_TRIM usually saves such a slot rather than dropping it,
+// what the conservatism costs is now a trimmed entry rather than a mount.
 SLOT_CUTTER_BOUNDS = [[-13.004, -13.2], [13.004, 9]];
 
 // Step of the circular base's Maximal offset search, in mm. The search is a
@@ -534,18 +576,26 @@ module openGridCupholder(
   // Both turn with the slide direction, and openconnect_slot_grid() keeps that
   // mapping to itself, so it is repeated here to stay in step. Both are convex,
   // which is what lets every test below settle a shape by its vertices alone.
+  //
+  // The cutter comes in two lengths, because a slot that will not otherwise fit
+  // can have SLOT_ENTRY_TRIM taken off its mouth end instead of being dropped.
+  // The footprint has only one length: it stops 9.4mm short of the mouth, so
+  // the trim never reaches it, and a slot the library's own rule rejects cannot
+  // be rescued by trimming.
   slot_facing =
     slotSlideDirection == "Left" ? 90
     : slotSlideDirection == "Right" ? -90
     : slotSlideDirection == "Down" ? 180
     : 0;
   slot_footprint = zrot(slot_facing, struct_val(ocslot_cfg(), "footprint"));
-  slot_cutter_outline = zrot(slot_facing, [
-    [SLOT_CUTTER_BOUNDS[0].x, SLOT_CUTTER_BOUNDS[0].y],
-    [SLOT_CUTTER_BOUNDS[1].x, SLOT_CUTTER_BOUNDS[0].y],
+  function slotCutterOutline(trim = 0) = zrot(slot_facing, [
+    [SLOT_CUTTER_BOUNDS[0].x, SLOT_CUTTER_BOUNDS[0].y + trim],
+    [SLOT_CUTTER_BOUNDS[1].x, SLOT_CUTTER_BOUNDS[0].y + trim],
     [SLOT_CUTTER_BOUNDS[1].x, SLOT_CUTTER_BOUNDS[1].y],
     [SLOT_CUTTER_BOUNDS[0].x, SLOT_CUTTER_BOUNDS[1].y],
   ]);
+  slot_cutter_outline = slotCutterOutline();
+  slot_trimmed_cutter_outline = slotCutterOutline(SLOT_ENTRY_TRIM);
 
   // Which slots the square base will actually cut. A slot has to meet both of:
   //
@@ -577,18 +627,32 @@ module openGridCupholder(
   // fit and the indices mean the same thing on either side of the turn.
   slot_band_outline = baseOutline(MIN_SLOT_EDGE_WALL);
 
-  function slotFits(cp) =
+  function slotFitsWith(cp, cutter) =
     is_pos_shape_in_region(cp=cp, footprint=slot_footprint, limit_region=[base_outline])
-      && is_pos_shape_in_region(cp=cp, footprint=slot_cutter_outline,
-        limit_region=[slot_band_outline]);
+      && is_pos_shape_in_region(cp=cp, footprint=cutter, limit_region=[slot_band_outline]);
 
   requested_slots = [
     for (i = [0 : units - 1], j = [0 : units - 1])
       if (is_grid_pos_described(i, j, units, units, slotPosition))
         [[i, j], [-(units - i * 2 - 1) * OG_TILE_SIZE / 2, (units - j * 2 - 1) * OG_TILE_SIZE / 2]]
   ];
-  fitted_slots = [for (s = requested_slots) if (slotFits(s[1])) s[1]];
-  dropped_slots = [for (s = requested_slots) if (!slotFits(s[1])) s[0]];
+
+  // Every requested position lands in exactly one of three sets, in this order:
+  // cut whole if the whole cutter clears the band, cut with the entry trimmed if
+  // only the short one does, dropped if neither. Whole is tried first because a
+  // full entry is the easier of the two to seat by hand - the trim is spent only
+  // where it buys a mount.
+  fitted_slots = [
+    for (s = requested_slots) if (slotFitsWith(s[1], slot_trimmed_cutter_outline)) s[1]
+  ];
+  trimmed_slots = [
+    for (s = requested_slots)
+      if (!slotFitsWith(s[1], slot_cutter_outline)
+        && slotFitsWith(s[1], slot_trimmed_cutter_outline)) s[1]
+  ];
+  dropped_slots = [
+    for (s = requested_slots) if (!slotFitsWith(s[1], slot_trimmed_cutter_outline)) s[0]
+  ];
 
   // -------------------------------------------------------------------------
   // Circular base. See the header for the rule these all serve: a grid
@@ -626,6 +690,13 @@ module openGridCupholder(
     ? concat(slot_footprint, slot_cutter_outline)
     : rect([SNAP_FOOTPRINT, SNAP_FOOTPRINT]);
 
+  // The same with the entry trimmed, which is what a position is allowed to fall
+  // back on. A snap has no entry to trim, so for snaps this is the same outline
+  // and no mount is ever counted as trimmed.
+  mount_trimmed_footprint = openConnectMount
+    ? concat(slot_footprint, slot_trimmed_cutter_outline)
+    : mount_footprint;
+
   // No position further out than this can hold a mount, so the sweep below has
   // somewhere to stop.
   mount_reach = ceil((mount_fit_radius + max([for (v = mount_footprint) norm(v)])) / OG_TILE_SIZE);
@@ -634,12 +705,18 @@ module openGridCupholder(
   // footprint is convex and the disc is convex, so the vertices settle it for
   // the edges between them too - which is also why is_pos_shape_in_region()
   // can test vertices alone on the square base.
-  function mountFits(px, py) =
+  function outlineFits(px, py, outline) =
     len([
-      for (v = mount_footprint)
+      for (v = outline)
         if ((px + v.x) * (px + v.x) + (py + v.y) * (py + v.y)
           > mount_fit_radius * mount_fit_radius) 1
     ]) == 0;
+
+  // A position is supported if it can be cut at all, which on a disc means the
+  // trimmed cutter clears the rim; it needs the trim only if the whole one does
+  // not. Same order as the square base - whole first, trimmed as the fallback.
+  function mountFits(px, py) = outlineFits(px, py, mount_trimmed_footprint);
+  function mountNeedsTrim(px, py) = !outlineFits(px, py, mount_footprint);
 
   // Supported positions at a given grid offset, as grid indices - x to the
   // right, y away, both counted from the position nearest the disc centre.
@@ -672,6 +749,13 @@ module openGridCupholder(
   // How much rim the tightest mount at a given offset has to spare. Two
   // offsets often support the same number of mounts while one of them leaves a
   // mount all but touching the rim, so this is what separates them.
+  //
+  // Measured against the WHOLE cutter, deliberately, even for a mount that will
+  // be cut with its entry trimmed: a mount needing the trim scores negative
+  // here, so of two offsets holding the same number an offset that needs no
+  // trimming always wins. The tie-break therefore doubles as a preference for
+  // leaving entries whole, which is the same order of preference the square
+  // base applies per slot.
   function mountClearanceAt(offset) =
     let (
       room = [
@@ -741,6 +825,13 @@ module openGridCupholder(
     ? selectedMounts(openConnectMount ? slotPosition : snapPlacement)
     : [];
 
+  // The ones among them that only fit with the entry trimmed, for the echo and
+  // for circularMountSlots(). Empty for snaps, which have no entry to trim.
+  circular_trimmed = circularBase && openConnectMount
+    ? [for (ij = circular_mounts) let (p = mountPosition(ij))
+        if (mountNeedsTrim(p.x, p.y)) ij]
+    : [];
+
   if (circularBase) {
     assert(len(mount_indices) > 0,
       str("No ", openConnectMount ? "openConnect slot" : "openGrid snap",
@@ -790,7 +881,13 @@ module openGridCupholder(
         ? str(disc_diameter, "mm circular base. ")
         : str(units, "x", units, " grid over a ", base_size, "x", base_size, "mm base. "),
       "Each slot takes ", mount_slot_depth, "mm of the ", baseThickness,
-      "mm base, leaving ", baseThickness - mount_slot_depth, "mm of floor under the cup."
+      "mm base, leaving ", baseThickness - mount_slot_depth, "mm of floor under the cup.",
+      let (trimmed = circularBase ? len(circular_trimmed) : len(trimmed_slots))
+        trimmed == 0 ? ""
+          : str(" ", trimmed, " of them have ", SLOT_ENTRY_TRIM,
+              "mm off the entry so they clear the outside of the base by ",
+              MIN_SLOT_EDGE_WALL, "mm; those seat with less room to line the ",
+              "connector up, and the rest are untouched.")
     ));
 
     // Only the square base can drop a slot it asked for: the circular base
@@ -799,16 +896,18 @@ module openGridCupholder(
       echo(str(
         "opengrid_cupholder: ", len(requested_slots) - len(fitted_slots), " of ",
         len(requested_slots), " slots cannot be cut with ", MIN_SLOT_EDGE_WALL,
-        "mm of material left between the cut and the outside of the base, and ",
-        "were dropped. Reduce Corner_Refinement_Size, turn Corner_Refinement_Type ",
-        "off, or pick a Slot_Position that keeps clear of the corners."
+        "mm of material left between the cut and the outside of the base, even ",
+        "with ", SLOT_ENTRY_TRIM, "mm off the entry, and were dropped. Reduce ",
+        "Corner_Refinement_Size, turn Corner_Refinement_Type off, or pick a ",
+        "Slot_Position that keeps clear of the corners."
       ));
 
     assert(circularBase || len(fitted_slots) > 0,
       str("No openConnect slot can be cut with ", MIN_SLOT_EDGE_WALL,
-        "mm of material left between the cut and the outside of the base, so the ",
-        "holder would have no mount. Reduce Corner_Refinement_Size, turn ",
-        "Corner_Refinement_Type off, or enlarge the cup holder."));
+        "mm of material left between the cut and the outside of the base, even ",
+        "with ", SLOT_ENTRY_TRIM, "mm off the entry, so the holder would have no ",
+        "mount. Reduce Corner_Refinement_Size, turn Corner_Refinement_Type off, ",
+        "or enlarge the cup holder."));
   }
 
   // Cross-section of one slot cutter, drawn across the slot (X) and along it
@@ -888,6 +987,28 @@ module openGridCupholder(
     }
   }
 
+  // Takes SLOT_ENTRY_TRIM off the mouth end of one slot's cutter. Subtracted
+  // from the cutter, so it puts material BACK into the base.
+  //
+  // Written in the cutter's own frame, where zrot(slot_facing) turns the local
+  // FRONT onto whichever way this slide direction's mouth faces, so one module
+  // serves all four. Bounded on every side rather than left as a half space,
+  // because on the square base one grid call draws every slot and an unbounded
+  // strip would reach into its neighbours: OG_TILE_SIZE across covers this
+  // cutter, which never leaves its own tile, and stops 14mm short of the next
+  // tile's centre where the neighbouring cutter's nearest point is 14.996mm
+  // away. Along the mouth it runs from the trim line to just past the cutter's
+  // own end, well clear of the next tile's cutter 5.8mm further on.
+  module entryTrimStrip(cp) {
+    translate(cp)
+      zrot(slot_facing)
+        back(SLOT_CUTTER_BOUNDS[0].y + SLOT_ENTRY_TRIM)
+          cuboid(
+            [OG_TILE_SIZE, SLOT_ENTRY_TRIM + SLOT_TRIM_OVERRUN, baseThickness * 4],
+            anchor=BACK
+          );
+  }
+
   // openConnect slots, cut into the board-facing underside of the base - the
   // same face the snaps would stand on, and the reason the grid has to be
   // turned over to get there.
@@ -910,28 +1031,33 @@ module openGridCupholder(
   // slot_flip_axis carries the reasoning for turning rather than mirroring,
   // and for turning about the slide axis in particular.
   //
-  // Which slots get cut is settled twice over, by the two rules slotFits()
+  // Which slots get cut is settled twice over, by the two rules slotFitsWith()
   // spells out: limit_region hands the library its own footprint rule, and
   // except_slot_pos hands it the positions whose cutter would come closer than
   // MIN_SLOT_EDGE_WALL to the outside of the base, which is a rule the library
-  // has no way to express.
+  // has no way to express. The strips then shorten the entries of the positions
+  // that only fit because they are allowed to be shortened - also something the
+  // library cannot be asked for, since one grid call draws every slot alike.
   module mountSlots() {
     down(baseThickness / 2)
       rot(180, v=slot_flip_axis)
-        openconnect_slot_grid(
-          slot_type="slot",
-          horizontal_grids=units,
-          vertical_grids=units,
-          slot_slide_direction=slotSlideDirection,
-          slot_position=slotPosition,
-          slot_lock_distribution=turned_lock_distribution,
-          slot_lock_side=turned_lock_side,
-          slot_entryramp_flip=slotEntryRampFlip,
-          limit_region=[base_outline],
-          except_slot_pos=dropped_slots,
-          excess_thickness=EPS,
-          anchor=TOP
-        );
+        difference() {
+          openconnect_slot_grid(
+            slot_type="slot",
+            horizontal_grids=units,
+            vertical_grids=units,
+            slot_slide_direction=slotSlideDirection,
+            slot_position=slotPosition,
+            slot_lock_distribution=turned_lock_distribution,
+            slot_lock_side=turned_lock_side,
+            slot_entryramp_flip=slotEntryRampFlip,
+            limit_region=[base_outline],
+            except_slot_pos=dropped_slots,
+            excess_thickness=EPS,
+            anchor=TOP
+          );
+          for (cp = trimmed_slots) entryTrimStrip(cp);
+        }
   }
 
   // openConnect base: the same footprint and corner refinement the snap facade
@@ -971,20 +1097,24 @@ module openGridCupholder(
     locked = selectedMounts(slotLockDistribution);
     down(baseThickness / 2)
       for (ij = circular_mounts)
-        translate(mountPosition(ij))
-          rot(180, v=slot_flip_axis)
-            openconnect_slot_grid(
-              slot_type="slot",
-              horizontal_grids=1,
-              vertical_grids=1,
-              slot_slide_direction=slotSlideDirection,
-              slot_position="All",
-              slot_lock_distribution=in_list(ij, locked) ? "All" : "None",
-              slot_lock_side=turned_lock_side,
-              slot_entryramp_flip=slotEntryRampFlip,
-              excess_thickness=EPS,
-              anchor=TOP
-            );
+        let (p = mountPosition(ij))
+          translate(p)
+            rot(180, v=slot_flip_axis)
+              difference() {
+                openconnect_slot_grid(
+                  slot_type="slot",
+                  horizontal_grids=1,
+                  vertical_grids=1,
+                  slot_slide_direction=slotSlideDirection,
+                  slot_position="All",
+                  slot_lock_distribution=in_list(ij, locked) ? "All" : "None",
+                  slot_lock_side=turned_lock_side,
+                  slot_entryramp_flip=slotEntryRampFlip,
+                  excess_thickness=EPS,
+                  anchor=TOP
+                );
+                if (mountNeedsTrim(p.x, p.y)) entryTrimStrip([0, 0]);
+              }
   }
 
   // Circular openConnect base: the disc under the cup with nothing standing
