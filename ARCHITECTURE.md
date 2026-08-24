@@ -51,19 +51,20 @@ All named measurements (offsets, distances, thicknesses) must be defined as posi
 
 External libraries carry their own licenses, and some are more restrictive than others. Before depending on a new external file, check its license against the repository license and record the conclusion in the part's file header — see `opengrid/parts/opengrid_inbox.scad` for the pattern.
 
-### Why QuackWorks points at a fork
+## Tests
 
-QuackWorks is pinned to [jhuizingh/QuackWorks](https://github.com/jhuizingh/QuackWorks), not to [upstream](https://github.com/AndyLevesque/QuackWorks), because it carries two openGrid snap fixes that upstream does not have yet:
+Each part may carry a sidecar `<part>.tests.yaml` beside it, declaring **feature
+tests**: a named feature, the camera angle that shows it, and the parameter
+combinations that prove it works. A pull request that touches a part renders
+those cases on both sides of the change and reports what moved.
 
-- **Lite snap connectivity** — increases the click hole bridge thickness so lite snaps stay connected.
-- **Nub overlap** — overlaps the nub geometry with the core body so snaps do not split into separate bodies in slicers.
-
-Both touch `openGrid/opengrid-snap.scad`, which `opengrid_facade.scad`, `opengrid_dual_sided_snap.scad`, and `opengrid_cupholder.scad` depend on. They are proposed upstream in [PR #127](https://github.com/AndyLevesque/QuackWorks/pull/127) and remain unmerged.
-
-The pin tracks the `zing3d-integration` branch, which exists to give those commits a stable home. It is deliberately *not* the PR branch `fix/lite-snap-click-hole-bridge`: a PR branch can be deleted on merge, rebased, or force-pushed, any of which would orphan the pinned commit and break the submodule. `zing3d-integration` is only ever moved on purpose.
-
-The branch is upstream's `main` plus those two commits. When upstream moves, rebase `zing3d-integration` onto it and bump the pin here. Upstream has been dormant — three commits in the nine months to 2026-08 — so this is rare. If the fixes land upstream, the fork and this note can go away.
+The organising unit is the feature rather than the part, so one part has many
+tests and a change to a shared module is traced through the dependency graph to
+every part it reaches. See [docs/visual-regression-tests.md](docs/visual-regression-tests.md).
 
 ## Future
 
-A validation script or CI check to enforce these conventions (module definition, Customizer variables, top-level render call) is a planned but not yet implemented enhancement.
+A validation script or CI check to enforce the conventions above (module
+definition, Customizer variables, top-level render call) is a planned but not
+yet implemented enhancement. The visual regression check covers geometry, not
+file structure.
