@@ -4,3 +4,6 @@
 dist/
 .claude/
 TODO.md
+__pycache__/
+*.pyc
+.venv/

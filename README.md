@@ -4,28 +4,28 @@ Parametric OpenSCAD models for 3D printing. Organized by system, designed to be 
 
 ## Setup
 
-Clone with submodules:
+Clone, then pull the submodules in:
 
 ```bash
-git clone --recurse-submodules https://github.com/zing3d-labs/openscad-models.git
-```
-
-Or if already cloned:
-
-```bash
-git submodule update --init --recursive
+git clone https://github.com/zing3d-labs/openscad-models.git
+cd openscad-models
+git submodule update --init
 ```
 
 ## Structure
 
 ```
 opengrid/         # openGrid modular mounting system
-  parts/          # Individual parametric components
+  parts/          # Individual parametric components, each with an optional
+                  #   <part>.tests.yaml declaring its visual feature tests
   kits/           # Multi-part assemblies
 external/
   BOSL2/              # BOSL2 OpenSCAD library (BelfrySCAD)
   QuackWorks/         # QuackWorks connector modules (pinned to a fork — see ARCHITECTURE.md)
   opengrid-projects/  # openConnect connector library (mitufy)
+tools/
+  visual_tests/       # The renderer and comparison tooling used by CI
+docs/
 ```
 
 ## Using the Models
@@ -33,6 +33,18 @@ external/
 Open any `.scad` file directly in OpenSCAD. Each part file renders a preview by default and exposes parameters via the built-in Customizer.
 
 See [ARCHITECTURE.md](ARCHITECTURE.md) for design conventions.
+
+## Changing a Model
+
+Pull requests that touch a `.scad` file get an automatic before/after
+comparison: the affected parts are rendered on both sides of the change and any
+visual or geometric difference is posted to the pull request. It is advisory —
+it reports what moved, it never fails a pull request.
+
+A part's feature tests live in `<part>.tests.yaml` beside it. If you add or
+change a feature, add or change its test.
+[docs/visual-regression-tests.md](docs/visual-regression-tests.md) explains the
+format.
 
 ## License
 

@@ -1,0 +1,4 @@
+# Pinned so a comparison run is reproducible. Bump deliberately.
+numpy==2.5.2
+pillow==12.3.0
+PyYAML==6.0.3

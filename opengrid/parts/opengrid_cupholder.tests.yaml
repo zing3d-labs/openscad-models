@@ -1,0 +1,234 @@
+# Feature tests for the openGrid cup holder.
+#
+# Organised by feature, not by parameter: each entry below is one thing the
+# part does, the camera angle that shows it, and the parameter combinations
+# that prove it works. Every case is measured (bounding box, volume, body
+# count); the cases marked `render: true` are also pictured.
+#
+# See docs/visual-regression-tests.md for the format and how to add a feature.
+
+version: 1
+part: opengrid_cupholder.scad
+description: >-
+  A cup holder that mounts to an openGrid board through a flat base, with
+  optional handle slots cut through the wall.
+
+defaults:
+  imgsize: [900, 700]
+  colorscheme: Tomorrow Night
+  # The model stands the way it is used: the base sits on Z = 0 and the cup
+  # opens upward, so every camera looks at positive Z.
+  camera:
+    eye: [330, -330, 140]
+    center: [0, 0, 45]
+  parameters:
+    # Lower than the part's own default of 150. Facet count drives render time
+    # far more than it changes what a reviewer can see, and both sides of a
+    # comparison use the same value, so nothing is lost by turning it down.
+    Smoothing: 40
+
+features:
+
+  handle_slots:
+    label: Handle slots
+    description: >-
+      Slots cut down from the cup rim so a mug handle can pass through, spaced
+      evenly around the circumference.
+    # Mostly front-on and above the rim, with the first slot rotated to face
+    # the camera so a single-slot case is not hidden round the back, but swung
+    # far enough to one side that the next slot round also shows.
+    camera:
+      eye: [150, -420, 150]
+      center: [0, 0, 62]
+    parameters:
+      # 270 aims the first slot at -Y, toward the camera. See the Directions
+      # note in the part's header.
+      Handle_Slot_Start_Angle: 270
+    matrix:
+      Handle_Slot_Count: [0, 1, 2, 3, 4, 6, 8]
+    cases:
+      # No slots at all: the wall must come back exactly as it was before the
+      # feature existed.
+      - params: {Handle_Slot_Count: 0}
+        render: true
+      - params: {Handle_Slot_Count: 1}
+        render: true
+      - params: {Handle_Slot_Count: 3}
+        render: true
+      # The slots nearly meet at eight; this is where the wall would break up
+      # into separate pieces if the spacing were ever wrong.
+      - params: {Handle_Slot_Count: 8}
+        render: true
+      - name: wide-slot
+        params: {Handle_Slot_Count: 2, Handle_Slot_Width: 60}
+        render: true
+      - name: full-height-slot
+        params: {Handle_Slot_Count: 2, Handle_Slot_Height: 200}
+        render: true
+      # The angle names a direction rather than an offset, so this one is
+      # aimed at +X regardless of what the feature's baseline asks for.
+      - name: aimed-right
+        params: {Handle_Slot_Count: 1, Handle_Slot_Start_Angle: 0}
+
+  handle_slot_ends:
+    label: Handle slot end refinement
+    description: >-
+      How the two ends of each slot are broken — the mouth at the rim, which
+      flares outward as a lead-in, and the closed inner end.
+    camera:
+      eye: [0, -300, 120]
+      center: [0, 0, 58]
+    parameters:
+      Handle_Slot_Count: 1
+      Handle_Slot_Start_Angle: 270
+    matrix:
+      Handle_Slot_End_Refinement_Type: [None, Chamfer, Fillet]
+      Handle_Slot_End_Refinement_Size: [1, 5, 10]
+    cases:
+      # "None" still has to cut the slot — it once did not.
+      - params: {Handle_Slot_End_Refinement_Type: None, Handle_Slot_End_Refinement_Size: 5}
+        render: true
+      - params: {Handle_Slot_End_Refinement_Type: Chamfer, Handle_Slot_End_Refinement_Size: 10}
+        render: true
+      - params: {Handle_Slot_End_Refinement_Type: Fillet, Handle_Slot_End_Refinement_Size: 10}
+        render: true
+      # The refinement is clamped so the two ends can never overrun each other.
+      # This case asks for far more than the slot can give.
+      - name: oversized-refinement
+        params:
+          Handle_Slot_End_Refinement_Type: Fillet
+          Handle_Slot_End_Refinement_Size: 20
+          Handle_Slot_Width: 12
+        render: true
+
+  base_shape:
+    label: Base shape
+    description: >-
+      A square slab sized up to whole grid units, or a disc that is just the
+      cup's own outline so the holder carries no material the cup does not
+      stand on.
+    matrix:
+      Base_Shape: [Square, Circular]
+      Mount_Type: [openConnect, Snaps]
+    cases:
+      - params: {Base_Shape: Square, Mount_Type: openConnect}
+        render: true
+      - params: {Base_Shape: Circular, Mount_Type: openConnect}
+        render: true
+      - params: {Base_Shape: Circular, Mount_Type: Snaps}
+        render: true
+
+  mount_type:
+    label: Mount type
+    description: >-
+      openConnect slots cut into the board-facing face, or openGrid snaps
+      standing proud of it. They are alternatives, never both.
+    # From underneath: the mount is on the face that meets the board.
+    camera:
+      eye: [280, -280, -160]
+      center: [0, 0, 10]
+    matrix:
+      Mount_Type: [openConnect, Snaps]
+      Mount_Alignment: [Centered, Maximal]
+    cases:
+      - params: {Mount_Type: openConnect, Mount_Alignment: Maximal}
+        render: true
+      - params: {Mount_Type: Snaps, Mount_Alignment: Maximal}
+        render: true
+
+  snap_placement:
+    label: Snap placement
+    description: >-
+      Which grid positions carry a snap, and whether the snaps are full or lite
+      height.
+    camera:
+      eye: [280, -280, -160]
+      center: [0, 0, 10]
+    parameters:
+      # Snap_Placement and Grid_Type only mean anything on the snap mount, and
+      # the part defaults to openConnect.
+      Mount_Type: Snaps
+    matrix:
+      Snap_Placement: [All, Edges, Corners]
+      Grid_Type: [Full, Lite]
+    cases:
+      - params: {Snap_Placement: Corners, Grid_Type: Lite}
+        render: true
+      - params: {Snap_Placement: Edges, Grid_Type: Lite}
+        render: true
+      - params: {Snap_Placement: All, Grid_Type: Full}
+        render: true
+
+  openconnect_slots:
+    label: openConnect slot layout
+    description: >-
+      Which grid positions carry an openConnect slot, and which way the holder
+      slides onto the connectors.
+    camera:
+      eye: [280, -280, -160]
+      center: [0, 0, 10]
+    parameters:
+      Mount_Type: openConnect
+    matrix:
+      Slot_Position: [All, Staggered, Edge Rows, Edge Columns, Corners]
+      Slot_Slide_Direction: [Up, Right]
+    cases:
+      - params: {Slot_Position: All, Slot_Slide_Direction: Up}
+        render: true
+      - params: {Slot_Position: Corners, Slot_Slide_Direction: Up}
+        render: true
+      # Direction is shared with the handle slot angle, so a change here must
+      # not move anything else.
+      - params: {Slot_Position: All, Slot_Slide_Direction: Right}
+        render: true
+      - name: no-locks
+        params: {Slot_Lock_Distribution: None}
+      - name: locks-right
+        params: {Slot_Lock_Side: Right}
+      - name: entry-ramp-flipped
+        params: {Slot_Entry_Ramp_Flip: true}
+
+  corner_refinement:
+    label: Base corner refinement
+    description: >-
+      The fillet or chamfer applied to the vertical corners of a square base.
+      A disc has no corners, so this is a square-base setting only.
+    # Close in on one corner: at base scale a 5 mm fillet is a few pixels.
+    camera:
+      eye: [-96, -96, 30]
+      center: [-52, -52, 2]
+    parameters:
+      Base_Shape: Square
+    matrix:
+      Corner_Refinement_Type: [None, Chamfer, Fillet]
+      Corner_Refinement_Size: [2, 5, 10]
+    cases:
+      - params: {Corner_Refinement_Type: None, Corner_Refinement_Size: 5}
+        render: true
+      - params: {Corner_Refinement_Type: Chamfer, Corner_Refinement_Size: 10}
+        render: true
+      - params: {Corner_Refinement_Type: Fillet, Corner_Refinement_Size: 10}
+        render: true
+
+  cup_profile:
+    label: Cup body profile
+    description: >-
+      The tapered body itself — the two diameters, the height, the wall
+      thickness, and how many grid units a square base grows to cover.
+    matrix:
+      Cup_Holder_Top_Diameter: [70, 90, 120]
+      Cup_Holder_Height: [50, 90]
+    cases:
+      - params: {Cup_Holder_Top_Diameter: 90, Cup_Holder_Height: 90}
+        render: true
+      - name: tall-and-narrow
+        params: {Cup_Holder_Top_Diameter: 65, Cup_Holder_Bottom_Diameter: 60, Cup_Holder_Height: 130}
+        render: true
+      - name: thick-wall
+        params: {Wall_Thickness: 5}
+        render: true
+      # The base is sized from the top diameter unless this is switched on,
+      # which changes the grid unit count and so the whole slab.
+      - name: sized-to-bottom
+        params: {Size_Base_Units_To_Bottom_Diameter: true}
+        render: true
