@@ -210,6 +210,51 @@ features:
       - params: {Corner_Refinement_Type: Fillet, Corner_Refinement_Size: 10}
         render: true
 
+  slot_edge_clearance:
+    label: Slot clearance at the base edge
+    description: >-
+      Every openConnect slot keeps a band of solid material between its cut and
+      the outside of the base. A slot that cannot is offered a shorter entry,
+      and dropped if even that will not fit — so a corner refinement costs a
+      corner slot its full entry first and then the slot itself.
+    # In under one corner, from the board-facing side. This is where the band is
+    # thinnest, and it puts the corner slot and its full-length neighbours in
+    # the same frame, which is the comparison that shows a shortened entry.
+    camera:
+      eye: [-140, -140, -100]
+      center: [-40, -40, 2]
+    parameters:
+      Mount_Type: openConnect
+      Base_Shape: Square
+    matrix:
+      Corner_Refinement_Type: [None, Chamfer, Fillet]
+      Corner_Refinement_Size: [2, 5, 10, 20]
+    cases:
+      # Nothing taken off the corner. Every slot is cut whole, and the band
+      # comes out at exactly 0.8mm along the edge rows — the square base has no
+      # margin here to begin with, which is why a refinement costs it so fast.
+      - params: {Corner_Refinement_Type: None, Corner_Refinement_Size: 5}
+        render: true
+      # The part's own default. The two corner slots at the mouth end fit only
+      # with a shortened entry, so they are cut short rather than dropped, and
+      # come out visibly stubbier than the slots either side of them.
+      - params: {Corner_Refinement_Type: Fillet, Corner_Refinement_Size: 5}
+        render: true
+      # Too deep for a shorter entry to rescue: all four corner slots go.
+      - params: {Corner_Refinement_Type: Fillet, Corner_Refinement_Size: 10}
+        render: true
+      # A chamfer takes the corner off on a straight diagonal, so it reaches a
+      # slot sooner than a fillet of the same size — these corners are already
+      # gone at 5mm, where the fillet's survive.
+      - params: {Corner_Refinement_Type: Chamfer, Corner_Refinement_Size: 5}
+        render: true
+      # A disc has no corners, but its rim curves away from a straight-sided
+      # cutter, so a slot can still approach it at a tangent and leave a sliver.
+      # Measured rather than pictured: this feature's camera is aimed at a
+      # square corner, and the body count is what says whether a slot survived.
+      - name: circular-rim
+        params: {Base_Shape: Circular, Cup_Holder_Bottom_Diameter: 71}
+
   cup_profile:
     label: Cup body profile
     description: >-
