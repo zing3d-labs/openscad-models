@@ -28,6 +28,65 @@ Each top-level folder represents an independent system (e.g., `opengrid/`). This
 
 Part files keep their system prefix (e.g., `opengrid_beam.scad`) so they are self-documenting when opened in isolation or imported by a kit.
 
+## Publishing Entry Points (`mw_` files)
+
+A model that has to print as several plates gets a second file beside the geometry:
+
+```
+kits/grid_basket/
+  grid_basket.scad      # geometry + plate modules, plain names. A library.
+  mw_grid_basket.scad   # publishing entry point. The only file with mw_ names.
+```
+
+The rule is `mw_<model>.scad is the published entry point; the bare name stays a library`.
+
+MakerWorld's Parametric Model Maker exports one plate per top-level module named
+`mw_plate_1()`, `mw_plate_2()`, … and shows `mw_assembly_view()` as a preview it leaves out of
+the exported 3MF. A script that defines any `mw_plate_N()` **cannot offer STL downloads** — a
+per-model product decision, not just a code change.
+
+**Why the split is mandatory, not stylistic.** `scad-compiler` inlines local includes, so
+`mw_plate_*` is contagious: any model that pulled in a library carrying those modules would
+inherit them into its own compiled Customizer and silently flip to multi-plate mode, costing
+*that* model its STL downloads. Publishing behavior must never live in geometry other kits
+include. Splitting costs nothing at publish time, since MakerWorld receives one flat file either
+way.
+
+The `mw_` file uses `use <model.scad>`, not `include`. `use` drops the library's top-level
+preview render (which would otherwise draw underneath the plates) and keeps its Customizer
+variables out of the published UI, so the `mw_` file owns the curated parameter set and passes
+every value down as an explicit named argument.
+
+### The decomposition lives in the library, not the entry point
+
+Both consumers render the same plates from the same modules:
+
+```
+local:      SCAD -> N STLs -> pack() -> N-plate 3MF   (baked at the chosen parameters)
+MakerWorld: SCAD -> Customizer runs mw_plate_1..N()   -> N-plate 3MF (at the user's parameters)
+```
+
+If the plates were defined twice — once in the build config, once in `mw_plate_N()` — they would
+drift, and the 3MF users download from the listing would stop matching the one uploaded as the
+print profile. That is a bug only findable by downloading both and comparing. So plates are plain
+modules in the library, and the `mw_` file and the build config are two thin consumers.
+
+The `mw_` file carries a `Render_Plate` parameter (`0` = assembly preview, `1..N` = that plate) so
+the build can render one STL per plate headlessly. Keep its `if`/`else` chain **inside a module**:
+`scad-compiler` keeps module bodies verbatim but drops the `else` branches of a *top-level* `if`
+chain, which would silently pin the published file to one branch.
+
+That dispatch is inert on MakerWorld. The Parametric Model Maker calls `mw_plate_N()` and
+`mw_assembly_view()` by name, so whatever the entry point renders at *top level* is ignored there;
+`Render_Plate` exists only for the local per-plate build and for desktop preview. Keep it in
+`/* [Hidden] */` so it stays out of the published Customizer. The vendored `Deskware_Main.scad`
+solves the same problem with a visible `MakerWorld_Render_Mode` checkbox in a Desktop Debug
+section — a desktop preview aid, not a guard on the export.
+
+Plates should fit roughly 240 x 235mm, MakerWorld's practical ceiling before auto-arrange starts
+failing. The build pipeline's bed-fit check is the authority on this; do not duplicate it in the
+`.scad`, and do not add a flag to bypass it.
+
 ## Module API
 
 The **module signature is the public API** of a part. All configuration a consumer might need must be exposed as named parameters with sensible defaults. Customizer variables are a curated subset of those parameters for the end-user UI — they are not the API.
