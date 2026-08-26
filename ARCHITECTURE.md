@@ -76,6 +76,13 @@ the build can render one STL per plate headlessly. Keep its `if`/`else` chain **
 `scad-compiler` keeps module bodies verbatim but drops the `else` branches of a *top-level* `if`
 chain, which would silently pin the published file to one branch.
 
+That dispatch is inert on MakerWorld. The Parametric Model Maker calls `mw_plate_N()` and
+`mw_assembly_view()` by name, so whatever the entry point renders at *top level* is ignored there;
+`Render_Plate` exists only for the local per-plate build and for desktop preview. Keep it in
+`/* [Hidden] */` so it stays out of the published Customizer. The vendored `Deskware_Main.scad`
+solves the same problem with a visible `MakerWorld_Render_Mode` checkbox in a Desktop Debug
+section — a desktop preview aid, not a guard on the export.
+
 Plates should fit roughly 240 x 235mm, MakerWorld's practical ceiling before auto-arrange starts
 failing. The build pipeline's bed-fit check is the authority on this; do not duplicate it in the
 `.scad`, and do not add a flag to bypass it.
