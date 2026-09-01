@@ -7,3 +7,10 @@ TODO.md
 __pycache__/
 *.pyc
 .venv/
+
+# OpenSCAD Customizer parameter sets. The GUI writes <part>.json beside the
+# .scad whenever a preset is saved, which makes them personal scratch rather
+# than part of the model. Scoped to where models live rather than ignored
+# repo-wide, so a config file that ought to be tracked still can be.
+*/parts/*.json
+*/kits/**/*.json
