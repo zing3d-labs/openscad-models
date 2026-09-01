@@ -1,0 +1,335 @@
+# Feature tests for the openGrid mounting base.
+#
+# Organised by feature, not by parameter: each entry below is one thing the
+# part does, the camera angle that shows it, and the parameter combinations
+# that prove it works. Every case is measured (bounding box, volume, body
+# count); the cases marked `render: true` are also pictured.
+#
+# This part is the base every other openGrid part in this repository mounts by,
+# so its dependents re-render whenever it changes. These cases are the base's
+# own — the ones that prove the slab, the mount and the fit rules, without a
+# cup or a block standing on top of them.
+#
+# See docs/visual-regression-tests.md for the format and how to add a feature.
+
+version: 1
+part: opengrid_mount_base.scad
+description: >-
+  The base an openGrid accessory mounts by — a rectangular slab or a disc,
+  carrying either openConnect slots or openGrid snaps on the face that meets
+  the board.
+
+defaults:
+  imgsize: [900, 700]
+  colorscheme: Tomorrow Night
+  # The base is built board-facing side down, and the mount is on that side, so
+  # the default camera looks up at it from underneath. A base seen from above
+  # is a featureless slab whichever mount it carries.
+  camera:
+    eye: [130, -130, -95]
+    center: [0, 0, 0]
+  parameters:
+    # Lower than the part's own default. Facet count drives render time far
+    # more than it changes what a reviewer can see, and both sides of a
+    # comparison use the same value, so nothing is lost by turning it down.
+    Smoothing: 40
+
+features:
+
+  mount_type:
+    label: Mount type
+    description: >-
+      openConnect slots cut into the board-facing face, or openGrid snaps
+      standing proud of it. They are alternatives, never both.
+    matrix:
+      Mount_Type: [openConnect, Snaps]
+      Base_Shape: [Rectangular, Circular]
+    cases:
+      - params: {Mount_Type: openConnect, Base_Shape: Rectangular}
+        render: true
+      - params: {Mount_Type: Snaps, Base_Shape: Rectangular}
+        render: true
+      # Snaps add their own thickness below the board-facing face while
+      # openConnect adds none, so the two differ in overall height at the same
+      # Thickness. That is the frame the whole file rests on.
+      - name: full-tile-snaps
+        params: {Mount_Type: Snaps, Grid_Type: Full}
+        render: true
+
+  grid_size:
+    label: Grid size
+    description: >-
+      A whole number of 28mm units in each direction, independently. One unit
+      in a direction is the case where the four corner positions collapse onto
+      each other, which is where an off-by-one in the placement shows up.
+    camera:
+      eye: [180, -180, -130]
+      center: [0, 0, 0]
+    matrix:
+      Units_X: [1, 2, 3, 4]
+      Units_Y: [1, 2, 3]
+    cases:
+      - name: one-by-one
+        params: {Units_X: 1, Units_Y: 1}
+        render: true
+      - name: three-by-one
+        params: {Units_X: 3, Units_Y: 1}
+        render: true
+      # A 3x1 sliding Up and a 1x3 sliding Right are the same part turned a
+      # quarter turn, so their measurements must agree exactly. This is the
+      # pair that catches an axis swapped in the rectangular generalisation.
+      - name: one-by-three-slid-right
+        params: {Units_X: 1, Units_Y: 3, Slot_Slide_Direction: Right}
+        render: true
+      - name: one-by-one-snaps
+        params: {Units_X: 1, Units_Y: 1, Mount_Type: Snaps}
+
+  thickness:
+    label: Slab thickness
+    description: >-
+      The material that stands out from the board. Never includes the snaps,
+      which go into the board rather than out from it, so the same thickness
+      stands out by the same distance under either mount.
+    camera:
+      eye: [130, -130, 40]
+      center: [0, 0, 0]
+    matrix:
+      Thickness: [3.5, 4, 8, 16]
+    cases:
+      - params: {Thickness: 3.5}
+      - params: {Thickness: 8}
+        render: true
+      - name: thin-snap-slab
+        params: {Thickness: 1, Mount_Type: Snaps}
+        render: true
+
+  corner_refinement:
+    label: Vertical corner refinement
+    description: >-
+      The fillet or chamfer applied to the vertical corners of a rectangular
+      base. A disc has no corners, so this is a rectangular-base setting only.
+    # Close in on one corner: at base scale a 2mm fillet is a few pixels.
+    camera:
+      eye: [-62, -62, 22]
+      center: [-26, -26, 0]
+    matrix:
+      Corner_Refinement_Type: [None, Chamfer, Fillet]
+      Corner_Refinement_Size: [2, 5, 10]
+    cases:
+      - params: {Corner_Refinement_Type: None, Corner_Refinement_Size: 2}
+        render: true
+      - params: {Corner_Refinement_Type: Chamfer, Corner_Refinement_Size: 5}
+        render: true
+      - params: {Corner_Refinement_Type: Fillet, Corner_Refinement_Size: 5}
+        render: true
+      # A refinement on a snap base cannot cost anything: the snaps stand off
+      # the face rather than cutting into it.
+      - name: fillet-on-snaps
+        params: {Mount_Type: Snaps, Corner_Refinement_Type: Fillet, Corner_Refinement_Size: 5}
+
+  top_edge_refinement:
+    label: Top edge refinement
+    description: >-
+      The fillet or chamfer around the top face — the far side from the board,
+      so it can never reach a mount. Works on both shapes, and composes with a
+      different refinement down the vertical corners.
+    # Side on and slightly above, which is the angle a break in the top edge
+    # actually reads at. Looking straight down it is a few pixels of shading.
+    camera:
+      eye: [92, -92, 46]
+      center: [0, 0, 0]
+    parameters:
+      Thickness: 8
+    matrix:
+      Top_Edge_Refinement_Type: [None, Chamfer, Fillet]
+      Top_Edge_Refinement_Size: [1, 2, 4]
+    cases:
+      # Off must leave the base exactly as it was before the feature existed,
+      # rather than intersecting it with a plain box.
+      - params: {Top_Edge_Refinement_Type: None, Top_Edge_Refinement_Size: 1}
+        render: true
+      - params: {Top_Edge_Refinement_Type: Fillet, Top_Edge_Refinement_Size: 2}
+        render: true
+      - params: {Top_Edge_Refinement_Type: Chamfer, Top_Edge_Refinement_Size: 2}
+        render: true
+      # At exactly the thickness a fillet takes the top face away to a
+      # bullnose, which is the limit of the shape rather than a failure.
+      - name: full-bullnose
+        params: {Top_Edge_Refinement_Type: Fillet, Top_Edge_Refinement_Size: 8}
+        render: true
+      # Deeper than there is material for: clamped to the thickness and
+      # reported, so this must come out identical to the bullnose above.
+      - name: clamped-to-thickness
+        params: {Top_Edge_Refinement_Type: Fillet, Top_Edge_Refinement_Size: 20}
+      # The two refinements are different shapes on different edges at once,
+      # which is the case one cuboid() call cannot express.
+      - name: chamfered-top-filleted-corners
+        params:
+          Top_Edge_Refinement_Type: Chamfer
+          Top_Edge_Refinement_Size: 2
+          Corner_Refinement_Type: Fillet
+          Corner_Refinement_Size: 5
+        render: true
+      # A disc has no vertical corners but does have a top rim.
+      - name: on-a-disc
+        params: {Base_Shape: Circular, Top_Edge_Refinement_Type: Fillet, Top_Edge_Refinement_Size: 3}
+        render: true
+      # The break is taken out of the top, so an openConnect slot in the
+      # underside must be untouched by it.
+      - name: openconnect-underside-untouched
+        params: {Mount_Type: openConnect, Top_Edge_Refinement_Type: Fillet, Top_Edge_Refinement_Size: 4}
+
+  slot_edge_clearance:
+    label: Slot clearance at the base edge
+    description: >-
+      Every openConnect slot keeps a band of solid material between its cut and
+      the outside of the base. A slot that cannot is offered a shorter entry,
+      and dropped if even that will not fit — so a corner refinement costs a
+      corner slot its full entry first and then the slot itself.
+    # In under one corner from the board-facing side, which is where the band is
+    # thinnest, with a full-length neighbour in the same frame for comparison.
+    camera:
+      eye: [-96, -96, -70]
+      center: [-24, -24, 0]
+    parameters:
+      Mount_Type: openConnect
+      Base_Shape: Rectangular
+    matrix:
+      Corner_Refinement_Type: [None, Chamfer, Fillet]
+      Corner_Refinement_Size: [2, 5, 10, 20]
+    cases:
+      # Nothing taken off the corner. Every slot is cut whole, and the band
+      # comes out at exactly 0.8mm along the edge rows — a rectangular base has
+      # no margin here to begin with, which is why a refinement costs it so fast.
+      - params: {Corner_Refinement_Type: None, Corner_Refinement_Size: 2}
+        render: true
+      # A one-by-one base is entirely edge rows and corners, so the single slot
+      # has the least room of any case. It survives on a shortened entry, which
+      # is the trim doing exactly the job it exists for.
+      - name: one-by-one-filleted
+        params: {Units_X: 1, Units_Y: 1, Corner_Refinement_Type: Fillet, Corner_Refinement_Size: 3}
+        render: true
+      # Too deep for a shorter entry to rescue on a 2x2, where every position is
+      # a corner: the base has no mount left and must refuse to build.
+      - name: fillet-eats-every-slot
+        params: {Corner_Refinement_Type: Fillet, Corner_Refinement_Size: 20}
+      # A chamfer takes the corner off on a straight diagonal, so it reaches a
+      # slot sooner than a fillet of the same size.
+      - params: {Corner_Refinement_Type: Chamfer, Corner_Refinement_Size: 10}
+        render: true
+
+  openconnect_slots:
+    label: openConnect slot layout
+    description: >-
+      Which grid positions carry a slot, which way the part slides onto the
+      connectors, and which slots get the locking detent.
+    camera:
+      eye: [180, -180, -130]
+      center: [0, 0, 0]
+    parameters:
+      Mount_Type: openConnect
+      Units_X: 3
+      Units_Y: 3
+    matrix:
+      Slot_Position: [All, Staggered, Edge Rows, Edge Columns, Corners]
+      Slot_Slide_Direction: [Up, Down, Left, Right]
+    cases:
+      - params: {Slot_Position: All, Slot_Slide_Direction: Up}
+        render: true
+      - params: {Slot_Position: Corners, Slot_Slide_Direction: Up}
+        render: true
+      - params: {Slot_Position: All, Slot_Slide_Direction: Right}
+        render: true
+      - name: no-locks
+        params: {Slot_Lock_Distribution: None}
+      - name: locks-right
+        params: {Slot_Lock_Side: Right}
+      # A row-named distribution has to be handed back across the turn when the
+      # slide is along X, and left alone when it is along Y.
+      - name: top-corners-slid-left
+        params: {Slot_Lock_Distribution: Top Corners, Slot_Slide_Direction: Left}
+      - name: top-corners-slid-up
+        params: {Slot_Lock_Distribution: Top Corners, Slot_Slide_Direction: Up}
+      - name: entry-ramp-flipped
+        params: {Slot_Entry_Ramp_Flip: true}
+
+  snap_placement:
+    label: Snap placement
+    description: >-
+      Which grid positions carry a snap, and whether the snaps are full or lite
+      height.
+    camera:
+      eye: [180, -180, -130]
+      center: [0, 0, 0]
+    parameters:
+      Mount_Type: Snaps
+      Units_X: 3
+      Units_Y: 3
+    matrix:
+      Snap_Placement: [All, Edges, Corners]
+      Grid_Type: [Full, Lite]
+    cases:
+      - params: {Snap_Placement: Corners, Grid_Type: Lite}
+        render: true
+      - params: {Snap_Placement: Edges, Grid_Type: Lite}
+        render: true
+      - params: {Snap_Placement: All, Grid_Type: Full}
+        render: true
+
+  circular_base:
+    label: Circular base
+    description: >-
+      A disc of a given diameter instead of a grid-sized slab. A disc cuts
+      across tiles, so a position is supported only where the whole mount fits
+      inside the rim.
+    camera:
+      eye: [170, -170, -120]
+      center: [0, 0, 0]
+    parameters:
+      Base_Shape: Circular
+    matrix:
+      Diameter: [40, 60, 75, 100, 140]
+      Mount_Type: [openConnect, Snaps]
+    cases:
+      - params: {Diameter: 100, Mount_Type: openConnect}
+        render: true
+      - params: {Diameter: 100, Mount_Type: Snaps}
+        render: true
+      # Small enough that only one position is supported, and only just — this
+      # is where the rim test either holds or leaves a sliver.
+      - name: smallest-disc
+        params: {Diameter: 40, Mount_Type: openConnect}
+        render: true
+      # A disc has no corners, so a refinement must be ignored rather than
+      # applied to the bounding box or silently costing a mount.
+      - name: refinement-ignored-on-disc
+        params: {Diameter: 100, Corner_Refinement_Type: Fillet, Corner_Refinement_Size: 10}
+
+  mount_alignment:
+    label: Circular mount alignment
+    description: >-
+      Where the 28mm grid falls under a disc. Centered puts a mount at the
+      middle; Maximal sweeps the offsets for the one supporting the most mounts,
+      breaking ties toward the roomiest fit and then toward centred.
+    camera:
+      eye: [170, -170, -120]
+      center: [0, 0, 0]
+    parameters:
+      Base_Shape: Circular
+    matrix:
+      Mount_Alignment: [Centered, Maximal]
+      Diameter: [60, 100, 108]
+    cases:
+      - params: {Mount_Alignment: Centered, Diameter: 100}
+        render: true
+      - params: {Mount_Alignment: Maximal, Diameter: 100}
+        render: true
+      # Maximal must come out AT centred when no offset does better, rather
+      # than sliding the grid for no gain.
+      - name: maximal-settles-on-centred
+        params: {Mount_Alignment: Maximal, Diameter: 60, Mount_Type: Snaps}
+      # A disc where an offset grid genuinely supports more snaps than a
+      # centred one.
+      - name: maximal-beats-centred
+        params: {Mount_Alignment: Maximal, Diameter: 108, Mount_Type: Snaps, Snap_Placement: All}
+        render: true

@@ -19,9 +19,10 @@ geometry moved.
 1. **Selection.** Every part's transitive `include`/`use` graph is walked and
    intersected with the files the pull request changes, measured against the
    **merge base** rather than the tip of `main`. `opengrid_cupholder.scad` does
-   `use <opengrid_facade.scad>`, so a facade change re-renders the cup holder
-   too. A submodule pin bump matches any part whose dependencies reach into
-   that submodule.
+   `use <opengrid_mount_base.scad>`, so a change to the mounting base
+   re-renders the cup holder and everything else standing on it. The walk is
+   transitive, so a change two hops away still counts — a submodule pin bump
+   matches any part whose dependencies reach into that submodule.
 2. **A determinism canary.** One case is rendered twice from the same commit
    and the two results must be identical. See [Why comparison is
    exact](#why-comparison-is-exact).
