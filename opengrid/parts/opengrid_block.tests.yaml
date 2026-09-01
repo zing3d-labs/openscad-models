@@ -1,0 +1,189 @@
+# Feature tests for the openGrid block.
+#
+# Organised by feature, not by parameter: each entry below is one thing the
+# part does, the camera angle that shows it, and the parameter combinations
+# that prove it works. Every case is measured (bounding box, volume, body
+# count); the cases marked `render: true` are also pictured.
+#
+# The block adds height to opengrid_mount_base.scad and nothing else, so the
+# mount's own behaviour is tested there. What is tested here is the height —
+# that it means the same thing under both mounts, and that the block comes out
+# as one solid at the sizes a stop is actually built at.
+#
+# See docs/visual-regression-tests.md for the format and how to add a feature.
+
+version: 1
+part: opengrid_block.scad
+description: >-
+  A plain block that mounts to an openGrid board — a stop that keeps a mounted
+  part from sliding off a horizontal board, and a spacer or riser otherwise.
+
+defaults:
+  imgsize: [900, 700]
+  colorscheme: Tomorrow Night
+  # A block is small, so the camera is close. Slightly above the horizon and
+  # off to one side, which shows the top face, a vertical corner and the side
+  # that does the blocking all at once.
+  camera:
+    eye: [70, -70, 45]
+    center: [0, 0, 4]
+  parameters:
+    Smoothing: 40
+
+features:
+
+  height:
+    label: Block height
+    description: >-
+      How far the block stands out from the board, which is what decides how
+      much of a neighbouring part's base its face catches. Means the same thing
+      under both mounts — the snaps go into the board, not out from it, so they
+      never count toward it.
+    camera:
+      eye: [70, -70, 30]
+      center: [0, 0, 4]
+    matrix:
+      Height: [3.5, 4, 8, 12, 20]
+      Mount_Type: [Snaps, openConnect]
+    cases:
+      - params: {Height: 8, Mount_Type: Snaps}
+        render: true
+      - params: {Height: 8, Mount_Type: openConnect}
+        render: true
+      # The shortest an openConnect block can be: 2.7mm of slot plus the 0.8mm
+      # of floor under it, with nothing to spare. One step below this the base
+      # must refuse to build.
+      - name: minimum-openconnect-height
+        params: {Height: 3.5, Mount_Type: openConnect}
+        render: true
+      # A snap block has no such floor, so it can be thinner than any slot.
+      # Well under the height that makes full-face contact with a neighbour,
+      # which the part reports rather than refuses.
+      - name: shorter-than-a-slot
+        params: {Height: 2, Mount_Type: Snaps}
+        render: true
+      - name: tall-riser
+        params: {Height: 20, Mount_Type: Snaps}
+
+  grid_size:
+    label: Block footprint
+    description: >-
+      A whole number of 28mm units in each direction. One by one is the usual
+      stop; longer blocks give a longer blocking face, or reach past more than
+      one part.
+    camera:
+      eye: [150, -150, 80]
+      center: [0, 0, 4]
+    matrix:
+      Units_X: [1, 2, 3]
+      Units_Y: [1, 2]
+    cases:
+      - name: one-by-one
+        params: {Units_X: 1, Units_Y: 1}
+        render: true
+      # A longer blocking face across one row, which is the shape wanted when
+      # the part being blocked is wider than a single tile.
+      - name: three-by-one
+        params: {Units_X: 3, Units_Y: 1}
+        render: true
+      - name: two-by-two-openconnect
+        params: {Units_X: 2, Units_Y: 2, Mount_Type: openConnect}
+
+  corner_refinement:
+    label: Vertical corner refinement
+    description: >-
+      The fillet or chamfer down the block's vertical corners. On an
+      openConnect block this eats the ground the slot's entry ramp runs over,
+      and on a one-by-one there is nothing to spare — the slot survives on a
+      shortened entry rather than at full length.
+    # Close in on one corner of a single-tile block.
+    camera:
+      eye: [-42, -42, 26]
+      center: [-13, -13, 4]
+    matrix:
+      Corner_Refinement_Type: [None, Chamfer, Fillet]
+      Corner_Refinement_Size: [1, 2, 5]
+    cases:
+      - params: {Corner_Refinement_Type: None, Corner_Refinement_Size: 2}
+        render: true
+      - params: {Corner_Refinement_Type: Fillet, Corner_Refinement_Size: 5}
+        render: true
+      - params: {Corner_Refinement_Type: Chamfer, Corner_Refinement_Size: 5}
+        render: true
+      # Free on a snap block, since the snaps stand off the face rather than
+      # cutting into it; costly on an openConnect one.
+      - name: filleted-openconnect
+        params: {Mount_Type: openConnect, Corner_Refinement_Type: Fillet, Corner_Refinement_Size: 3}
+        render: true
+
+  mount:
+    label: Mount
+    description: >-
+      Snaps by default, because a stop is shoved in the plane of the board and
+      a snap has no release axis to be shoved along. openConnect is offered for
+      a board already fitted with connectors.
+    # From underneath: the mount is on the face that meets the board.
+    camera:
+      eye: [70, -70, -45]
+      center: [0, 0, 2]
+    matrix:
+      Mount_Type: [Snaps, openConnect]
+      Grid_Type: [Lite, Full]
+      Snap_Placement: [All, Corners]
+    cases:
+      - params: {Mount_Type: Snaps, Grid_Type: Lite}
+        render: true
+      - params: {Mount_Type: Snaps, Grid_Type: Full}
+        render: true
+      - params: {Mount_Type: openConnect}
+        render: true
+      # The slide direction is the block's own release axis, and it must be
+      # kept across the bump rather than along it. Turning it must move the
+      # slot and nothing else.
+      - name: slid-right
+        params: {Mount_Type: openConnect, Slot_Slide_Direction: Right}
+        render: true
+      - name: no-locks
+        params: {Mount_Type: openConnect, Slot_Lock_Distribution: None}
+
+  top_edge_refinement:
+    label: Top edge refinement
+    description: >-
+      The fillet or chamfer around the top face, on by default because a block
+      is picked up by hand. It is taken out of the top, so the blocking face
+      keeps its full height underneath it.
+    camera:
+      eye: [62, -62, 34]
+      center: [0, 0, 4]
+    matrix:
+      Top_Edge_Refinement_Type: [None, Chamfer, Fillet]
+      Top_Edge_Refinement_Size: [1, 2, 4]
+    cases:
+      - params: {Top_Edge_Refinement_Type: Fillet, Top_Edge_Refinement_Size: 1}
+        render: true
+      - params: {Top_Edge_Refinement_Type: Chamfer, Top_Edge_Refinement_Size: 2}
+        render: true
+      - params: {Top_Edge_Refinement_Type: None, Top_Edge_Refinement_Size: 1}
+        render: true
+      # Both refinements at once, in different shapes, which is what a block
+      # asked to look finished actually gets set to.
+      - name: filleted-corners-chamfered-top
+        params:
+          Corner_Refinement_Type: Fillet
+          Corner_Refinement_Size: 4
+          Top_Edge_Refinement_Type: Chamfer
+          Top_Edge_Refinement_Size: 2
+        render: true
+      # A break deeper than the block is tall is clamped to it, leaving a
+      # bullnosed top rather than failing.
+      - name: clamped-bullnose
+        params: {Top_Edge_Refinement_Type: Fillet, Top_Edge_Refinement_Size: 20}
+        render: true
+      # The break must not reach the mount on the far face.
+      - name: openconnect-with-both
+        params:
+          Mount_Type: openConnect
+          Top_Edge_Refinement_Type: Fillet
+          Top_Edge_Refinement_Size: 2
+          Corner_Refinement_Type: Fillet
+          Corner_Refinement_Size: 3

@@ -9,10 +9,12 @@ openGrid uses a standardized 28mm grid with a snap connector spec that keeps acc
 | File | Description |
 |------|-------------|
 | `parts/opengrid_beam.scad` | Corner beam for building basket frames |
+| `parts/opengrid_block.scad` | Plain block that mounts to openGrid by openConnect slots or snaps — a stop that keeps a mounted part from sliding off a horizontal board, and a spacer or riser otherwise |
 | `parts/opengrid_connector.scad` | Grid connector hardware |
 | `parts/opengrid_dual_sided_snap.scad` | Dual-sided snap connector for mounting objects to openGrid tiles |
 | `parts/opengrid_facade.scad` | Flat panel that snaps onto openGrid tiles for a finished look ([docs](parts/opengrid_facade.md)) |
 | `parts/opengrid_cupholder.scad` | Cup holder that mounts to openGrid by openConnect slots or by snaps, on a square or circular base, with optional handle slots for mugs |
+| `parts/opengrid_mount_base.scad` | The base other parts mount by — a rectangular slab or a disc carrying openConnect slots or openGrid snaps. Printable alone as a bare mounting plate |
 | `parts/opengrid_inbox.scad` | Wall-mounted paper, envelope, and file inbox with optional perforated panels, mounted via openConnect slots ([docs](parts/opengrid_inbox.md)) |
 
 ## Kits
