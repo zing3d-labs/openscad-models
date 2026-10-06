@@ -76,10 +76,10 @@ plate_part_spacing = 5;
 
 basketRender();
 
-// Top-level render. The if/else chain lives inside a module on purpose:
-// scad-compiler keeps module bodies verbatim but drops the else branches of a
-// TOP-LEVEL if chain, which would silently pin the published file to the
-// assembly view no matter what Render_Plate said.
+// Top-level render. The if/else chain lives inside a module by house style,
+// so the file has a single top-level render call like every part file (see
+// ARCHITECTURE.md). It is not a compiler workaround: scad-compiler preserves a
+// top-level if/else chain intact, so moving it out would also be correct.
 module basketRender() {
   if (Render_Plate == 0) mw_assembly_view();
   else if (Render_Plate == 1) mw_plate_1();
