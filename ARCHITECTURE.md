@@ -72,9 +72,12 @@ print profile. That is a bug only findable by downloading both and comparing. So
 modules in the library, and the `mw_` file and the build config are two thin consumers.
 
 The `mw_` file carries a `Render_Plate` parameter (`0` = assembly preview, `1..N` = that plate) so
-the build can render one STL per plate headlessly. Keep its `if`/`else` chain **inside a module**:
-`scad-compiler` keeps module bodies verbatim but drops the `else` branches of a *top-level* `if`
-chain, which would silently pin the published file to one branch.
+the build can render one STL per plate headlessly. Its `if`/`else` chain lives **inside a
+module**, so the entry point keeps the single top-level render call every part file has. This is
+a convention, not a toolchain requirement: `scad-compiler` preserves a top-level `if` /
+`else if` / `else` chain intact (openscad-toolkit #43), so a chain left at top level would compile
+correctly. Earlier versions of this note claimed the compiler dropped the `else` branches; that
+bug is fixed, and the pattern stays only because one top-level call is easier to reason about.
 
 That dispatch is inert on MakerWorld. The Parametric Model Maker calls `mw_plate_N()` and
 `mw_assembly_view()` by name, so whatever the entry point renders at *top level* is ignored there;

@@ -39,6 +39,11 @@ Specs live beside the part they test: `opengrid/parts/<part>.tests.yaml` next to
 `<part>.scad`. They are sidecars rather than one central file so that a pull
 request touching a model shows the model and its tests in the same diff.
 
+Kits work the same way one directory down: any `.scad` at any depth under
+`<system>/parts/` or `<system>/kits/` is a part, so
+`opengrid/kits/grid_basket/mw_grid_basket.tests.yaml` covers
+`mw_grid_basket.scad` beside it.
+
 ```yaml
 version: 1
 part: opengrid_cupholder.scad
