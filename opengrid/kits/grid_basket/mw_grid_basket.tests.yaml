@@ -1,0 +1,123 @@
+# Feature tests for the grid basket's MakerWorld entry point.
+#
+# Organised by feature, not by parameter: each entry below is one thing the
+# file does, the camera angle that shows it, and the parameter combinations
+# that prove it works. Every case is measured (bounding box, volume, body
+# count); the cases marked `render: true` are also pictured.
+#
+# This file is what gets published, so what is tested here is what a buyer
+# receives: that Render_Plate selects each plate, that the assembly preview
+# matches the plates, and that the Customizer options reach the geometry.
+# The panels and beams themselves come from grid_basket.scad.
+#
+# Every plate is laid flat on the bed and centred, so one overhead camera
+# frames all six; the assembly preview gets a three-quarter view instead.
+#
+# See docs/visual-regression-tests.md for the format and how to add a feature.
+
+version: 1
+part: mw_grid_basket.scad
+description: >-
+  The MakerWorld publishing entry point for the grid basket kit — six print
+  plates plus an assembly preview, selected with Render_Plate.
+
+defaults:
+  imgsize: [900, 700]
+  colorscheme: Tomorrow Night
+  camera:
+    eye: [0, -260, 560]
+    center: [0, 0, 0]
+
+features:
+
+  plates:
+    label: Plate selection
+    description: >-
+      Render_Plate picks one print plate, so the local build can export one
+      STL per plate. Each value has to produce its own plate; a dispatch that
+      collapsed to one branch would make every plate come out the same.
+    cases:
+      - name: plate-1-base
+        params: {Render_Plate: 1}
+        render: true
+      - name: plate-2-left-wall
+        params: {Render_Plate: 2}
+        render: true
+      - name: plate-3-right-wall
+        params: {Render_Plate: 3}
+        render: true
+      - name: plate-4-front-wall
+        params: {Render_Plate: 4}
+        render: true
+      - name: plate-5-back-wall
+        params: {Render_Plate: 5}
+        render: true
+      - name: plate-6-beams-and-snaps
+        params: {Render_Plate: 6}
+        render: true
+
+  assembly:
+    label: Assembly preview
+    description: >-
+      Render_Plate 0, the finished basket built from the same plate modules.
+      Explosion_distance pulls the parts apart so each one can be seen.
+    camera:
+      eye: [420, -420, 360]
+      center: [0, -5, 80]
+    parameters:
+      Render_Plate: 0
+    cases:
+      - name: assembled
+        params: {}
+        render: true
+      - name: exploded
+        params: {Explosion_distance: 25}
+        render: true
+
+  basket_size:
+    label: Basket size
+    description: >-
+      Width, depth and height in whole openGrid units. Every plate is sized
+      from these, so they are swept on the assembly, where all six show at
+      once.
+    camera:
+      eye: [420, -420, 360]
+      center: [0, -5, 80]
+    parameters:
+      Render_Plate: 0
+    matrix:
+      Basket_X_Units: [2, 4]
+      Basket_Z_Units: [2, 6]
+    cases:
+      - name: small-cube
+        params: {Basket_X_Units: 2, Basket_Y_Units: 2, Basket_Z_Units: 2}
+        render: true
+
+  grid_thickness:
+    label: Grid to attach to
+    description: >-
+      Full or Lite openGrid. Only the dual sided snaps on plate 6 change, since
+      they are what clip into the board the basket hangs on.
+    parameters:
+      Render_Plate: 6
+    cases:
+      - params: {Attach_to_grid_thickness: Full}
+        render: true
+      - params: {Attach_to_grid_thickness: Lite}
+        render: true
+
+  beam_corners:
+    label: Beam corner style
+    description: >-
+      Which beam axis gets the extended ends. Only one axis should be extended,
+      or the ends overlap. The beams print on plate 6.
+    parameters:
+      Render_Plate: 6
+    cases:
+      - name: x-extended
+        params: {Beam_Corners_X: Extended, Beam_Corners_Y: Flush, Beam_Corners_Z: Flush}
+      - name: y-extended
+        params: {Beam_Corners_X: Flush, Beam_Corners_Y: Extended, Beam_Corners_Z: Flush}
+        render: true
+      - name: z-extended
+        params: {Beam_Corners_X: Flush, Beam_Corners_Y: Flush, Beam_Corners_Z: Extended}

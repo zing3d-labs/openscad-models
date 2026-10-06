@@ -79,11 +79,14 @@ def scad_dependencies(
 def discover_parts(repo_root: Path) -> list[Path]:
     """Every buildable model in the repo, as repo-relative paths.
 
-    Any `<system>/parts/*.scad` or `<system>/kits/*.scad`, excluding
-    `external/`, which holds third-party libraries rather than our models.
+    Any `.scad` at any depth under `<system>/parts/` or `<system>/kits/`,
+    excluding `external/`, which holds third-party libraries rather than our
+    models. Depth matters: a kit lives in its own directory
+    (`opengrid/kits/grid_basket/mw_grid_basket.scad`), so matching only files
+    directly under `kits/` would never select a kit at all.
     """
     parts: list[Path] = []
-    for scad in sorted(repo_root.glob("*/*/*.scad")):
+    for scad in sorted(repo_root.glob("*/*/**/*.scad")):
         rel = scad.relative_to(repo_root)
         if rel.parts[0] == "external":
             continue
