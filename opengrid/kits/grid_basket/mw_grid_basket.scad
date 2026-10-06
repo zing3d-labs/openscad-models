@@ -76,8 +76,8 @@ plate_part_spacing = 5;
 
 basketRender();
 
-// Top-level render. The if/else chain lives inside a module by house style,
-// so the file has a single top-level render call like every part file (see
+// Top-level render. The if/else chain lives inside a module so the file keeps
+// a single top-level render call, the same convention as every part file (see
 // ARCHITECTURE.md). It is not a compiler workaround: scad-compiler preserves a
 // top-level if/else chain intact, so moving it out would also be correct.
 module basketRender() {
