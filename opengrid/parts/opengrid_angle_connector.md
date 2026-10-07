@@ -38,14 +38,15 @@ These were judgment calls made to get a working part. Each one is a parameter, s
    tilt happens in, which is the plane typing load bends the part in. That is the
    strong orientation for a tent. It also prints both faces as vertical walls.
 3. **The default body is Truss.** It prints on side with no support inside, weighs
-   about two-thirds of Solid, and is triangulated against the racking a tall tent sees.
+   a little over half of Solid, and is triangulated against the racking a tall tent sees.
 4. **Handedness.** With one tilt axis, the right-hand part is the left-hand part
    turned 180°, so one print serves both halves. `Handedness = Right` still builds the
    true mirror image, so both halves can slide the same way in the world. That is
    also the path toe-in will need.
-5. **Hinge placement.** The face's low edge sits directly above the board plate's
-   −Y edge (`Hinge_Offset = 0`). `Lift = 0` picks the least height that keeps the
-   object plate clear of the board plate.
+5. **Default placement.** The face's low edge sits directly above the board plate's
+   trailing edge (`Low_Edge_Offset = 0`), and `Low_Edge_Height = 0` picks the least
+   height that keeps the object plate clear of the board plate. See *Placing the
+   face* for moving it.
 6. **Default sizes:** board 4×2 units, object face 4×3 units, 5mm plates, 45° tilt,
    studs on the corners. These are placeholders until the keyboard case is measured
    (*open*, below).
@@ -59,8 +60,10 @@ Customizer names; the module takes the same in camelCase.
 | Parameter | Range / values | Default | Notes |
 |---|---|---|---|
 | `Tilt_Angle` | 0–90° | 45 | Measured off the board plane. 0 is a flat spacer, 90 is upright. |
-| `Lift` | mm, 0 = auto | 0 | Height of the face's low edge. Auto is `Board_Thickness + Object_Thickness·cos(tilt)`. |
-| `Hinge_Offset` | mm | 0 | Moves the low edge along Y from the board's −Y edge. |
+| `Low_Edge_Height` | mm ≥ 0, 0 = auto | 0 | Height of the face's low edge above the board surface. Auto is `Board_Thickness + Object_Thickness·cos(tilt)`. |
+| `Low_Edge_Offset` | mm, any sign | 0 | How far the low edge is set across the hinge from the board's trailing edge (the edge the face rises away from). Positive moves it the way the face rises; it may be negative or run past the far edge. |
+| `Face_Offset_X` | mm | 0 | Slides the face along the hinge relative to the board's centre. |
+| `Low_Edge_Clearance` | mm ≥ 0 | 10 | How far below the low edge, down the slope, the space in front of the face is kept clear for an overhanging object. |
 | `Board_Units_X/Y` | 1–12 | 4 / 2 | Board-plate footprint in 28mm units. |
 | `Board_Thickness` | ≥ 3.5 for openConnect | 5 | |
 | `Board_Mount_Type` | openConnect, Snaps | openConnect | |
@@ -84,6 +87,53 @@ These module-only parameters are kept out of the Customizer until printed: `toeA
 
 ---
 
+## Placing the face
+
+The face is placed by its **low edge**: its height above the board surface
+(`Low_Edge_Height`), how far it is set across the hinge from the board's trailing
+edge (`Low_Edge_Offset`), and how far the face is slid along the hinge
+(`Face_Offset_X`). The board (`Board_Units_X/Y`) and the face (`Object_Units_X/Y`)
+are sized independently. A 3×3 board carrying a 5×3 face with its low edge 20mm up
+and 80mm across works:
+
+```
+Board_Units_X = 3; Board_Units_Y = 3;
+Object_Units_X = 5; Object_Units_Y = 3;
+Low_Edge_Height = 20; Low_Edge_Offset = 80;
+```
+
+**What the body is allowed to fill.** Between the plates, everything except two
+zones:
+
+- **The object plate and the space in front of it**, from its low end up. This
+  keeps the body out of its slots.
+- **The space in front of the face plane**, reaching `Low_Edge_Clearance` below
+  the low edge. This is room for an object that overhangs the face's low edge.
+
+Further below that, the body may reach in front of the face plane. That is how a
+face set out over the board gets buttressed from the board side. Directly behind
+the face plane, below the low edge, the body takes hold of the plate's lower end.
+`Low_Edge_Clearance = 0` buttresses right up to the low edge.
+
+**Sanity checks.** The part refuses a placement where:
+
+- the object plate, or its studs, slots or snaps, would run into the board plate;
+- the face would reach below the board surface;
+- the board plate would sit in front of the face, where the object goes;
+- the Arch's springing point is not over the board. An Arch needs its corner on
+  the board, so use Truss, Tube or Solid for a face set far out.
+
+It warns when:
+
+- the board plate leaves an object less room below the low edge than
+  `Low_Edge_Clearance` asks for;
+- the body stands on less than one tile (28mm) of the board's depth;
+- the face and board overlap by less than one tile along the hinge;
+- the face reaches more than 10mm past the board's edge as a cantilever (a note).
+
+The geometric checks apply to the single-axis pose. With toe or roll set, only
+the hinge-overlap warning runs.
+
 ## Body shapes
 
 All renders below are at the defaults (45°, board 4×2, face 4×3). Volume is the
@@ -92,11 +142,11 @@ and keeps the same order.
 
 | Shape | What it is | Volume | Prints on side | Notes |
 |---|---|---|---|---|
-| **Solid** | Hull of the two plates | 246 cm³ | yes | Stiffest and simplest. Most material. Also works for any compound pose. |
-| **Tube** | Triangular shell: board plate, object plate, back wall | 121 cm³ | yes | Lightest closed section. Good in torsion. The back wall is a long unbraced panel. |
-| **Truss** *(default)* | Tube with a web upright and diagonal per bay | 157 cm³ | yes | Triangulated, so the back wall and the face are braced. A good mid-point. |
-| **Arch** | Quarter-ellipse shell from the board's far edge to the face's top edge | 140 cm³ | yes | Closest to today's tents. At shallow tilts it bulges past the board's +Y edge (by 27mm at 45°), because an arch has to reach the face's top. |
-| **Ribbed** | Gussets across the hinge, back left open | 90 cm³ | **no**, print As Mounted | Lightest. The open back is good for cables. On side, its inner ribs become shelves with a free edge (13× the steep overhang of the others, measured). |
+| **Solid** | Hull of the two plates | 247 cm³ | yes | Stiffest and simplest. Most material. Also works for any compound pose. |
+| **Tube** | Triangular shell: board plate, object plate, back wall | 92 cm³ | yes | Lightest closed section; the plates are its other two walls. Good in torsion. The back wall is a long unbraced panel. |
+| **Truss** *(default)* | Tube with a web upright and diagonal per bay | 135 cm³ | yes | Triangulated, so the back wall and the face are braced. A good mid-point. |
+| **Arch** | Quarter-ellipse shell from the board's far edge to the face's top edge | 99 cm³ | yes | Closest to today's tents. At shallow tilts it bulges past the board's +Y edge (by 27mm at 45°), because an arch has to reach the face's top. |
+| **Ribbed** | Gussets across the hinge, back left open | 91 cm³ | **no**, print As Mounted | About as light as Tube. The open back is good for cables. On side, its inner ribs become shelves with a free edge (13× the steep overhang of the others, measured). |
 
 Trade-offs for the keyboard:
 
@@ -194,16 +244,22 @@ check has a control that has to come out non-empty, so a pass is evidence.
   `openGridMountBase()` with slots, placed through the same pose. The result is
   empty for both hands, all four slide directions, all five bodies, and tilts of
   0, 20, 45, 70 and 90. Control: the same plate without slots gives 4392mm³,
-  which is 12 studs' worth.
+  which is 12 studs' worth. It is also empty for:
+  - a 3×3 board with a 5×3 face set 20mm up and 80mm across, for Solid, Tube,
+    Truss and Ribbed, in both hands (control: 5472mm³, 15 studs);
+  - the face slid 40mm along the hinge;
+  - the low edge set 30mm in front of the board.
 - **Object slots take connector heads.** Empty for both hands and all four
   directions.
 - **Board face mates.** Connector heads at every tile give an empty
-  intersection, for every body and tilt tested. Control: heads shifted 0.4mm
-  into the lip give 389mm³.
-- **Body never fills a slot.** The body is clipped to above the board plate's
-  top face and behind the object plate's back face. The mate checks above are
-  what prove it.
-- **One body.** All 62 cases in `opengrid_angle_connector.tests.yaml` measure
+  intersection, for every body and tilt tested, and for the placements above.
+  Control: heads shifted 0.4mm into the lip give 389mm³ (438mm³, 9 heads, on
+  the 3×3 board).
+- **Body never fills a slot.** The body is kept out of the board plate and out
+  of the object plate's zone. The mate checks above are what prove it.
+- **Every sanity check fires.** Each error and warning was triggered by a
+  placement built for it, and the defaults trigger none.
+- **One body.** All 81 cases in `opengrid_angle_connector.tests.yaml` measure
   one body. The exception is a closed Arch, which reports its sealed hollow as a
   second shell.
 - **The base is unchanged.** `opengrid_mount_base`, `opengrid_block` and

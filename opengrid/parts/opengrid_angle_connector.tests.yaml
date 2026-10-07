@@ -50,10 +50,61 @@ features:
       - params: {Tilt_Angle: 90}
         render: true
       - name: lifted
-        params: {Tilt_Angle: 30, Lift: 20}
+        params: {Tilt_Angle: 30, Low_Edge_Height: 20}
         render: true
       - name: hinge-offset
-        params: {Tilt_Angle: 60, Hinge_Offset: 14}
+        params: {Tilt_Angle: 60, Low_Edge_Offset: 14}
+
+  placement:
+    label: Face placement
+    description: >-
+      Where the face's low edge sits - its height above the board, how far it
+      is set across the hinge from the board's trailing edge, and how far the
+      face is slid along the hinge - on a board and a face sized
+      independently. A face set out over the board is buttressed from in front
+      of its plane, below the zone kept clear for an overhanging object.
+    parameters:
+      Board_Units_X: 3
+      Board_Units_Y: 3
+      Object_Units_X: 5
+      Object_Units_Y: 3
+    camera:
+      eye: [320, 30, 45]
+      center: [0, 30, 45]
+    matrix:
+      Low_Edge_Height: [0, 20]
+      Low_Edge_Offset: [0, 40, 80]
+      Body_Shape: [Solid, Truss]
+    cases:
+      - name: set-out-over-the-board
+        params: {Low_Edge_Height: 20, Low_Edge_Offset: 80, Body_Shape: Truss}
+        render: true
+      - name: set-out-solid
+        params: {Low_Edge_Height: 20, Low_Edge_Offset: 80, Body_Shape: Solid}
+        render: true
+      # Case names drop a minus sign, so a negative offset is named here
+      # rather than swept, where it would collide with its positive twin.
+      - name: set-in-front-of-the-board
+        params: {Low_Edge_Height: 15, Low_Edge_Offset: -20, Body_Shape: Truss}
+      - name: set-out-no-clearance
+        params: {Low_Edge_Height: 20, Low_Edge_Offset: 80, Body_Shape: Truss, Low_Edge_Clearance: 0}
+        render: true
+
+  along_hinge:
+    label: Face slid along the hinge
+    description: >-
+      Face_Offset_X moves the face along the hinge against the board; the body
+      spans whatever the two plates span between them.
+    parameters:
+      Object_Units_X: 5
+    camera:
+      eye: [0, -260, 160]
+      center: [0, 0, 30]
+    matrix:
+      Face_Offset_X: [0, 28, 56]
+    cases:
+      - params: {Face_Offset_X: 28}
+        render: true
 
   body_shape:
     label: Body shape

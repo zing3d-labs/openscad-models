@@ -25,6 +25,25 @@
                     up the slope. Everything on that face is drawn in that
                     frame and placed by one matrix, angleConnectorObjectPose().
 
+  Where the face sits is three numbers, all about its LOW EDGE: its height
+  above the board surface, how far it is set across the hinge from the
+  board's trailing edge (the edge the face rises away from), and how far the
+  face is slid along the hinge. The board and the face are sized
+  independently in grid units, so a 3x3 board can carry a 5x3 face set out
+  past its far edge. The part refuses a face that would run into the board
+  plate or below the board surface, or that would put the board plate where
+  the object goes, and it says when a placement leaves the body standing on
+  little of the board, the face and board barely overlapping along the
+  hinge, or an object less room below the low edge than asked for.
+
+  The body fills whatever lies between the plates EXCEPT two zones: the
+  object plate itself (so it never fills a slot), and the space in front of
+  the face reaching Low_Edge_Clearance below its low edge (so an object that
+  overhangs the low edge has room). Further below that, the body may reach in
+  front of the face plane - that is what buttresses a face whose low edge is
+  set out over the board - and directly behind the face below its low edge it
+  takes hold of the plate's lower end.
+
   That one matrix is the whole angle mechanism. The draft offers a single tilt
   axis, but the pose already takes a toe angle (about the board normal) and a
   roll (about the face's up-slope axis), and everything placed through it -
@@ -101,19 +120,32 @@
 include <BOSL2/std.scad>
 use <opengrid_mount_base.scad>
 
-/* [Angle] */
+/* [Face Placement] */
 
 // Tilt of the object face off the board, in degrees. 0 is a flat spacer, 90
 // stands the face upright.
 Tilt_Angle = 45; // [0:1:90]
 
-// Height of the object face's low edge above the board, in mm. 0 picks the
-// least that keeps the object plate clear of the board plate.
-Lift = 0;
+// Height of the object face's low edge above the board surface, in mm. 0
+// picks the least that keeps the object plate clear of the board plate.
+Low_Edge_Height = 0;
 
-// Where the low edge sits along Y, in mm from the board plate's -Y edge.
-// 0 puts the edge straight above it.
-Hinge_Offset = 0;
+// Where the low edge sits across the hinge, in mm from the board plate's
+// trailing edge - the edge the face rises away from (-Y for a left-hand
+// part). Positive moves it the way the face rises. It may be negative, or
+// run past the far edge, so the face overhangs the board.
+Low_Edge_Offset = 0;
+
+// Slides the object face along the hinge, in mm, relative to the board
+// plate's centre.
+Face_Offset_X = 0;
+
+// How far below the face's low edge, measured down the slope, the space in
+// front of the face is kept clear - for an object that overhangs the low
+// edge. Below that the body may reach in front of the face to buttress it
+// from the board, which is what holds a face whose low edge is set well over
+// the board.
+Low_Edge_Clearance = 10;
 
 /* [Board Face] */
 
@@ -189,8 +221,10 @@ Smoothing = 40; // [10:10:300]
 
 opengridAngleConnector(
   tiltAngle=Tilt_Angle,
-  lift=Lift,
-  hingeOffset=Hinge_Offset,
+  lowEdgeHeight=Low_Edge_Height,
+  lowEdgeOffset=Low_Edge_Offset,
+  faceOffsetX=Face_Offset_X,
+  lowEdgeClearance=Low_Edge_Clearance,
   boardUnitsX=Board_Units_X,
   boardUnitsY=Board_Units_Y,
   boardThickness=Board_Thickness,
@@ -228,20 +262,27 @@ ANGLE_CONNECTOR_OVERLAP = 0.1;
 // Larger than any part this file draws; used for the clipping half-spaces.
 ANGLE_CONNECTOR_REACH = 2000;
 
+// How far past the board plate's edge the face may reach before the part
+// says so. Reaching that far is allowed - it is a note, not a check.
+ANGLE_CONNECTOR_CANTILEVER_NOTE = 10;
+
 // Places the object frame in the part's frame. The hinge line - the object
-// face's low edge - runs along X at height `lift` and position `hingeY`; the
-// face rises from it at `tilt`. `toe` turns it about the board normal and
-// `roll` about its own up-slope axis. A face of depth `objectDepth` has its
-// centre at the object frame's origin.
+// face's low edge - runs along X at height `lift` and position `hingeY`, and
+// the face's centre sits `offsetX` along it; the face rises from it at
+// `tilt`. `toe` turns it about the board normal and `roll` about its own
+// up-slope axis. A face of depth `objectDepth` has its centre at the object
+// frame's origin.
 //
 // This is the single source of truth for where the object face is. Shared in
 // spirit with a lighter angle bracket for beams: anything that hangs a face
 // at an angle off an openGrid face needs exactly this and a plate either end.
-function angleConnectorObjectPose(tilt, lift, hingeY, objectDepth, toe = 0, roll = 0) =
-  move([0, hingeY, lift]) * zrot(toe) * xrot(tilt) * yrot(roll) * back(objectDepth / 2);
+function angleConnectorObjectPose(tilt, lift, hingeY, objectDepth, toe = 0, roll = 0, offsetX = 0) =
+  move([offsetX, hingeY, lift]) * zrot(toe) * xrot(tilt) * yrot(roll) * back(objectDepth / 2);
 
-// The least lift that keeps the object plate's lowest corner on or above the
-// board plate's top face, for a single tilt axis.
+// A lift that keeps the object plate's lowest corner on or above the board
+// plate's top face wherever the face is, for a single tilt axis. It is the
+// least that fits when the low edge is over the board; a face set off the
+// board can go lower, and Low_Edge_Height says how much.
 function angleConnectorMinLift(tilt, boardThickness, objectThickness) =
   boardThickness + objectThickness * cos(tilt);
 
@@ -283,8 +324,10 @@ function angleConnectorGridPositions(unitsX, unitsY, placement) =
 
 module opengridAngleConnector(
   tiltAngle = 45,
-  lift = 0,
-  hingeOffset = 0,
+  lowEdgeHeight = 0,
+  lowEdgeOffset = 0,
+  faceOffsetX = 0,
+  lowEdgeClearance = 10,
   toeAngle = 0,
   rollAngle = 0,
   boardUnitsX = 4,
@@ -322,18 +365,24 @@ module opengridAngleConnector(
   board_d = boardUnitsY * t;
   object_w = objectUnitsX * t;
   object_d = objectUnitsY * t;
-  body_w = max(board_w, object_w);
+  // The body spans whatever the two plates span along the hinge.
+  body_x0 = min(-board_w / 2, faceOffsetX - object_w / 2);
+  body_x1 = max(board_w / 2, faceOffsetX + object_w / 2);
+  body_w = body_x1 - body_x0;
+  body_xc = (body_x0 + body_x1) / 2;
+  x_overlap = min(board_w / 2, faceOffsetX + object_w / 2) - max(-board_w / 2, faceOffsetX - object_w / 2);
 
-  min_lift = angleConnectorMinLift(tiltAngle, boardThickness, objectThickness);
-  lift_used = lift == 0 ? min_lift : lift;
-  hinge_y = -board_d / 2 + hingeOffset;
+  lift_used = lowEdgeHeight == 0
+    ? angleConnectorMinLift(tiltAngle, boardThickness, objectThickness)
+    : lowEdgeHeight;
+  hinge_y = -board_d / 2 + lowEdgeOffset;
 
   assert(tiltAngle >= 0 && tiltAngle <= 90,
     str("Tilt_Angle must be between 0 and 90 degrees - it is ", tiltAngle, "."));
-  assert(!singleAxis || lift_used >= min_lift - 1e-6,
-    str("Lift must be at least ", min_lift, "mm at a tilt of ", tiltAngle,
-      " degrees, or the object plate dips into the board plate - it is ", lift_used,
-      "mm. Set Lift to 0 to pick the least that fits."));
+  assert(lowEdgeHeight >= 0,
+    str("Low_Edge_Height is a height above the board, so it cannot be negative - it is ", lowEdgeHeight, "mm."));
+  assert(lowEdgeClearance >= 0,
+    str("Low_Edge_Clearance cannot be negative - it is ", lowEdgeClearance, "mm."));
   assert(boardMountType != "openConnect" || boardThickness >= openGridMountMinThickness(),
     str("Board_Thickness must be at least ", openGridMountMinThickness(),
       "mm for openConnect slots - it is ", boardThickness, "mm."));
@@ -346,7 +395,7 @@ module opengridAngleConnector(
   assert(bodyShape != "Ribbed" || ribCount >= 2,
     "A Ribbed body needs at least two ribs, one at each end.");
 
-  pose_left = angleConnectorObjectPose(tiltAngle, lift_used, hinge_y, object_d, toeAngle, rollAngle);
+  pose_left = angleConnectorObjectPose(tiltAngle, lift_used, hinge_y, object_d, toeAngle, rollAngle, faceOffsetX);
   // M * P * M: a proper motion, so whatever it places is placed, not
   // mirrored, while it lands where the mirrored part's face is.
   pose = rightHand ? ANGLE_CONNECTOR_MIRROR * pose_left * ANGLE_CONNECTOR_MIRROR : pose_left;
@@ -380,30 +429,129 @@ module opengridAngleConnector(
   if (printOrientation == "On Side" && boardSlideDirection != objectSlideDirection)
     echo("opengridAngleConnector: note - the board and object slides differ, so only the object face is laid the printable way up.");
 
-  echo(str("opengridAngleConnector: tilt ", tiltAngle, " deg, lift ", lift_used,
-    "mm, object face ", object_w, " x ", object_d, "mm, top edge ",
-    lift_used + object_d * sin(tiltAngle), "mm above the board"));
+  // --- placement sanity, in the side view (Y, Z) ------------------------
+  //
+  // Everything here is measured in the face's own slope coordinates: s down
+  // the face from its low edge (negative below it) and n out of the face
+  // (negative behind it). The checks sample lines at 1mm, which is finer
+  // than anything they guard against.
+  slope_u = [cos(tiltAngle), sin(tiltAngle)];
+  slope_n = [-sin(tiltAngle), cos(tiltAngle)];
+  low_edge = [hinge_y, lift_used];
+  function slopeS(p) = (p - low_edge) * slope_u;
+  function slopeN(p) = (p - low_edge) * slope_n;
+  function samples(a, b) = let (k = max(1, ceil(norm(b - a)))) [for (i = [0:k]) lerp(a, b, i / k)];
+
+  stud_reach = objectMountType == "Studs" ? openGridMountStudHeight()
+    : objectMountType == "Snaps" ? openGridMountSnapThickness(liteSnap) : 0;
+  face_lo = low_edge;
+  face_hi = low_edge + object_d * slope_u;
+  // The object plate's outline in the side view, mount included.
+  plate_outline = concat(
+    samples(face_lo - objectThickness * slope_n, face_hi - objectThickness * slope_n),
+    samples(face_lo + stud_reach * slope_n, face_hi + stud_reach * slope_n),
+    samples(face_lo - objectThickness * slope_n, face_lo + stud_reach * slope_n),
+    samples(face_hi - objectThickness * slope_n, face_hi + stud_reach * slope_n)
+  );
+  board_top = samples([-board_d / 2, boardThickness], [board_d / 2, boardThickness]);
+  plates_share_x = x_overlap > 0;
+
+  plate_lowest = min([for (p = plate_outline) p.y]);
+  plate_in_board = [for (p = plate_outline)
+    if (plates_share_x && abs(p.x) < board_d / 2 - 1e-6 && p.y < boardThickness - 1e-6) p];
+  // The board's top face where the object goes: in front of the face, from
+  // its low edge up.
+  board_under_object = [for (p = board_top) if (slopeN(p) > 1e-6 && slopeS(p) >= 0) p];
+  // ...and below the low edge, within the clearance asked for.
+  board_in_clearance = [for (p = board_top) if (slopeN(p) > 1e-6 && slopeS(p) < 0) p];
+  clearance_available = len(board_in_clearance) == 0 ? undef
+    : -max([for (p = board_in_clearance) slopeS(p)]);
+  // How much of the board's depth the body may stand on: everything outside
+  // the zone kept clear in front of the face.
+  joint_depth = len([for (p = board_top)
+    if (!(slopeN(p) > -objectThickness && slopeS(p) > 0) && !(slopeN(p) > 0 && slopeS(p) > -lowEdgeClearance)) p]) - 1;
+  face_overhang = max(0, max(face_hi.x, face_lo.x) - board_d / 2, -board_d / 2 - min(face_hi.x, face_lo.x));
+
+  if (singleAxis) {
+    assert(plate_lowest >= -1e-6,
+      str("The object face reaches ", -plate_lowest, "mm below the board surface. Raise ",
+        "Low_Edge_Height, or lower Tilt_Angle."));
+    assert(len(plate_in_board) == 0,
+      str("The object plate", stud_reach > 0 ? " or its mount" : "", " runs into the board plate (at Y = ",
+        plate_in_board[0].x, ", Z = ", plate_in_board[0].y, "). Raise Low_Edge_Height to at least ",
+        angleConnectorMinLift(tiltAngle, boardThickness, objectThickness),
+        "mm, or move the low edge off the board with Low_Edge_Offset."));
+    assert(!plates_share_x || len(board_under_object) == 0,
+      str("The board plate sits in front of the object face, where the object goes (at Y = ",
+        board_under_object[0].x, "). Move the low edge back with Low_Edge_Offset, or raise it."));
+    if (plates_share_x && clearance_available != undef && clearance_available < lowEdgeClearance)
+      echo(str("opengridAngleConnector: WARNING - the board plate is only ", clearance_available,
+        "mm below the face's low edge (down the slope), less than the ", lowEdgeClearance,
+        "mm Low_Edge_Clearance asks for. An object overhanging the low edge further than that meets the board."));
+    if (joint_depth < t)
+      echo(str("opengridAngleConnector: WARNING - the body stands on only ", max(joint_depth, 0),
+        "mm of the board's ", board_d, "mm depth, so the face hangs off a narrow joint. Lower ",
+        "Low_Edge_Clearance, or move the low edge back over the board."));
+    // Only worth saying once it is more than a plate's slop: at the defaults
+    // the face's top edge already passes the board's by a few mm.
+    if (face_overhang > ANGLE_CONNECTOR_CANTILEVER_NOTE)
+      echo(str("opengridAngleConnector: note - the face reaches ", face_overhang,
+        "mm past the board plate's edge, as a cantilever."));
+  }
+  if (x_overlap < t)
+    echo(str("opengridAngleConnector: WARNING - the face and the board plate overlap by only ",
+      max(x_overlap, 0), "mm along the hinge, so the body twists between them. Bring Face_Offset_X back."));
+
+  echo(str("opengridAngleConnector: tilt ", tiltAngle, " deg; low edge ", lift_used,
+    "mm above the board, ", lowEdgeOffset, "mm from its trailing edge, ", faceOffsetX,
+    "mm along the hinge; face ", object_w, " x ", object_d, "mm on a ", board_w, " x ", board_d,
+    "mm board; top edge ", lift_used + object_d * sin(tiltAngle), "mm up"));
 
   // --- the side profile, for the single-axis bodies, in (Y, Z) -----------
   function objectCorner(y, z) = let (p = apply(pose_left, [0, y, z])) [p.y, p.z];
-  back_low = objectCorner(-object_d / 2, -objectThickness + eps);
-  back_high = objectCorner(object_d / 2, -objectThickness + eps);
+  // Set into the object plate by twice the overlap, so the plate zone (which
+  // starts at one overlap) cuts them cleanly. Sitting exactly on its edge
+  // they leave a zero-volume sliver behind.
+  back_low = objectCorner(-object_d / 2, -objectThickness + 2 * eps);
+  back_high = objectCorner(object_d / 2, -objectThickness + 2 * eps);
   board_lo = [-board_d / 2, boardThickness - eps];
   board_hi = [board_d / 2, boardThickness - eps];
   profile_points = [board_lo, board_hi, back_high, back_low];
   profile = select(profile_points, hull2d_path(profile_points));
 
   // The Arch: a quarter-ellipse from the board plate's far edge round to the
-  // object plate's high edge, sprung from the corner where the two meet.
+  // object plate's high edge, sprung from the corner where the two meet. It
+  // needs that corner over the board with room ahead of it.
   arch_corner = [back_low.x, boardThickness - eps];
+  assert(bodyShape != "Arch" || !singleAxis
+      || (arch_corner.x >= board_lo.x && arch_corner.x <= board_hi.x - 2 * wallThickness),
+    str("An Arch springs from below the face's low edge, so that has to be over the board with ",
+      2 * wallThickness, "mm to spare before its far edge. Use Truss, Tube or Solid for a face set ",
+      "this far out, or bring Low_Edge_Offset back."));
   // Wound counter-clockwise, as polygon() and offset() expect.
   arch_region = concat(
     [arch_corner],
-    [for (a = [0:5:90]) arch_corner + cos(a) * (board_hi - arch_corner) + sin(a) * (back_high - arch_corner)]
+    [for (a = [0:5:90]) arch_corner + cos(a) * (board_hi - arch_corner) + sin(a) * (back_high - arch_corner)],
+    [back_low]
   );
   arch_region_ccw = is_polygon_clockwise(arch_region) ? reverse(arch_region) : arch_region;
 
-  rib_xs = [for (k = [0:max(ribCount, 2) - 1]) -body_w / 2 + ribThickness / 2 + k * (body_w - ribThickness) / (max(ribCount, 2) - 1)];
+  rib_xs = [for (k = [0:max(ribCount, 2) - 1]) body_x0 + ribThickness / 2 + k * (body_w - ribThickness) / (max(ribCount, 2) - 1)];
+
+  // What the body has to keep clear of, in the side view, as two zones in
+  // the face's slope coordinates:
+  //   - the object plate and everything in front of it, from its low end up,
+  //     so the body never fills a slot. It starts `eps` above the low end so
+  //     a body meeting the plate's end overlaps it rather than touching.
+  //   - the space in front of the face plane, reaching Low_Edge_Clearance
+  //     below the low edge, which is where an overhanging object goes.
+  // Behind the face plane below its low edge is NOT kept clear - the object
+  // can never be there - and that is where the body takes hold of the plate's
+  // lower end when the face is set out over the board.
+  function slopeQuad(s0, n0) = [for (sn = [[s0, n0], [reach, n0], [reach, reach], [s0, reach]])
+    low_edge + sn[0] * slope_u + sn[1] * slope_n];
+  plate_zone = slopeQuad(eps, -objectThickness + eps);
+  object_zone = slopeQuad(-lowEdgeClearance, 0);
 
   // The Truss's webs: an upright from the board to the object plate at each
   // bay, and a diagonal from the top of one to the foot of the next, so every
@@ -413,12 +561,35 @@ module opengridAngleConnector(
       each [lerp(board_lo, board_hi, i / (trussBays + 1)), lerp(back_low, back_high, i / (trussBays + 1))]
   ];
 
-  // Extrudes a 2D (Y, Z) child across X, centred. The builtin offset() is
-  // used on these rather than BOSL2's function, because a lightening hole on
-  // a shallow tilt can shrink to nothing, and the builtin returns nothing
-  // where BOSL2's asserts.
+  // Extrudes a 2D (Y, Z) child across X, centred on the body's span. The
+  // builtin offset() is used on these rather than BOSL2's function, because
+  // a lightening hole on a shallow tilt can shrink to nothing, and the
+  // builtin returns nothing where BOSL2's asserts.
   module extrudeAcross(width) {
-    left(width / 2) rotate([90, 0, 90]) linear_extrude(height=width) children();
+    translate([body_xc - width / 2, 0, 0]) rotate([90, 0, 90]) linear_extrude(height=width) children();
+  }
+
+  // A side profile with the clear zones taken out BEFORE it is shelled, so a
+  // Tube or Truss cut back by the zone keeps a wall along the cut rather than
+  // opening its hollow to the air.
+  module clippedProfile(region) {
+    difference() { polygon(region); polygon(plate_zone); polygon(object_zone); }
+  }
+
+  // The hollow of a shelled profile. Inset from the profile together with
+  // the two plates it meets, so that along a plate the hollow runs right up
+  // to the plate and the plate is the wall - a shell wall there would only
+  // double it - while along any other edge, the clearance cut included, it
+  // stops a Wall_Thickness short.
+  module profileHollow(region) {
+    intersection() {
+      offset(delta=-wallThickness) union() {
+        clippedProfile(region);
+        polygon([face_lo, face_hi, face_hi - objectThickness * slope_n, face_lo - objectThickness * slope_n]);
+        translate([-board_d / 2, 0]) square([board_d, boardThickness]);
+      }
+      clippedProfile(region);
+    }
   }
 
   module solidHull() {
@@ -440,13 +611,13 @@ module opengridAngleConnector(
     } else if (bodyShape == "Tube" || bodyShape == "Truss" || bodyShape == "Arch") {
       region = bodyShape == "Arch" ? arch_region_ccw : profile;
       difference() {
-        extrudeAcross(body_w) polygon(region);
+        extrudeAcross(body_w) clippedProfile(region);
         // The hollow, less the end walls if asked for. The Truss's webs are
         // taken out of the hollow rather than added to the shell, so they
         // stop at its inside face.
         difference() {
-          extrudeAcross(body_w + 2) offset(delta=-wallThickness) polygon(region);
-          if (endWalls) for (x = [-1, 1]) translate([x * (body_w - wallThickness) / 2, 0, 0])
+          extrudeAcross(body_w + 2) profileHollow(region);
+          if (endWalls) for (x = [body_x0 + wallThickness / 2, body_x1 - wallThickness / 2]) translate([x, 0, 0])
             cuboid([wallThickness, reach, reach]);
           if (bodyShape == "Truss") extrudeAcross(body_w + 4) stroke(truss_path, width=wallThickness);
         }
@@ -456,13 +627,22 @@ module opengridAngleConnector(
     }
   }
 
-  // Everything the body may occupy: above the board plate's top face and
-  // behind the object plate's back face, so it never fills a slot on either.
+  // Everything the body may NOT occupy: the board plate (its slots) and the
+  // ground under the board's surface, and the two zones kept clear around
+  // the face (the object plate's slots and the object itself). The same
+  // zones as plate_zone and object_zone, drawn in 3D through the pose so they
+  // hold for any pose.
   module bodyLeft() {
-    intersection() {
+    difference() {
       bodyUnclipped();
-      up(boardThickness - eps) cuboid([reach, reach, reach], anchor=BOTTOM);
-      multmatrix(pose_left) down(objectThickness - eps) cuboid([reach, reach, reach], anchor=TOP);
+      down(reach / 2 - boardThickness + eps) cuboid([board_w, board_d, reach]);
+      cuboid([reach, reach, reach], anchor=TOP);
+      multmatrix(pose_left) {
+        translate([0, -object_d / 2 + eps, -objectThickness + eps])
+          cuboid([reach, reach, reach], anchor=FRONT + BOTTOM);
+        translate([0, -object_d / 2 - lowEdgeClearance, 0])
+          cuboid([reach, reach, reach], anchor=FRONT + BOTTOM);
+      }
     }
   }
 
@@ -517,7 +697,9 @@ module opengridAngleConnector(
   }
 
   if (printOrientation == "On Side")
-    up(body_w / 2) yrot(side_down_is_plus_x ? 90 : -90) assembled();
+    // yrot(90) takes +X down and yrot(-90) takes -X down; either way the
+    // end that lands on the bed is lifted onto it.
+    up(side_down_is_plus_x ? body_x1 : -body_x0) yrot(side_down_is_plus_x ? 90 : -90) assembled();
   else
     assembled();
 }
