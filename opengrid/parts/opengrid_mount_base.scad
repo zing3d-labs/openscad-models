@@ -657,6 +657,43 @@ module openGridMountEntryTrimStrip(slotSlideDirection = "Up", cp = [0, 0]) {
 }
 
 // ---------------------------------------------------------------------------
+// The positive of a slot: an openConnect stud.
+//
+// A part that something else slides ONTO carries studs rather than slots - the
+// same head an openconnect_screw() presents from the board, printed straight
+// onto the part instead of screwed into a tile. It stands proud of a face
+// lying in the local Z = 0 plane, with the part's material BELOW that plane:
+// the narrow neck meets the face and the wide flange is outermost, which is
+// the way round a turned slot cutter (openGridMountSlotCutter above) holds it.
+//
+// It is the screw's head and it gets there the screw's way - turned, with
+// xrot(180) zrot(180), never mirrored - for the same chirality reason the
+// cutter is turned. Measured: openconnect_head() differenced against
+// openGridMountSlotCutter("Up") at the same origin is EMPTY, a zflip()ped head
+// in its place leaves 90 facets of nub standing, and an unturned one leaves
+// 8.5mm^3 of flange in the slot's lip. So a stud placed where a slot would be
+// cut is exactly the head that slot is made for.
+//
+// slotSlideDirection names the way the part CARRYING THE SLOTS slides to come
+// off this stud, in this face's own axes - the same name that part's slots
+// were cut with, so a slotted part and a studded one agree on one word. The
+// stud is turned about Z to face it; turning, not the library's mirrored
+// Down/Left/Right, so every direction is the true head. Each of the four,
+// differenced against openGridMountSlotCutter() of the same name, comes out
+// empty.
+//
+// This is one stud at the origin. Choosing which grid positions carry one is
+// the caller's for now; see opengrid_angle_connector.md for the base mode that
+// would do it here.
+function openGridMountStudHeight() = struct_val(ochead_cfg(), "total_height");
+
+module openGridMountStud(slotSlideDirection = "Up", lockNotches = "Both") {
+  zrot(openGridMountSlotFacing(slotSlideDirection))
+    up(openGridMountStudHeight()) xrot(180) zrot(180)
+      openconnect_head(head_type="head", add_nubs=lockNotches, anchor=BOTTOM);
+}
+
+// ---------------------------------------------------------------------------
 
 module openGridMountBase(
   baseShape = "Rectangular",
