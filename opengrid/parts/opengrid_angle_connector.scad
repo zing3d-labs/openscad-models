@@ -110,6 +110,11 @@
   bed too. A slide up or down the slope cannot be laid that way, and is
   echoed.
 
+  On side the part builds up along the hinge, so a plate narrower than the
+  body - a face wider than the board, slid along it, or narrower than it -
+  ends partway up the print. Its end is given a 45-degree wedge into a wall
+  the body keeps where that plate is missing, so it never starts in mid-air.
+
   "As Mounted" leaves the board face on the bed, for looking at.
 
   ---------------------------------------------------------------------------
@@ -648,15 +653,73 @@ module opengridAngleConnector(
   // to the plate and the plate is the wall - a shell wall there would only
   // double it - while along any other edge, the clearance cut included, it
   // stops a Wall_Thickness short.
-  module profileHollow(region) {
+  //
+  // Only the plates actually there count: along a stretch of the hinge that
+  // one plate does not reach - a face wider than the board, or slid along
+  // it - the hollow stops a wall short of where that plate would be, so the
+  // body keeps a floor or a face-side wall of its own there. Without it the
+  // plate's end would start in mid-air on an on-side print.
+  module profileHollow(region, withBoard = true, withObject = true) {
     intersection() {
       offset(delta=-wallThickness) union() {
         clippedProfile(region);
-        polygon([face_lo, face_hi, face_hi - objectThickness * slope_n, face_lo - objectThickness * slope_n]);
-        translate([-board_d / 2, 0]) square([board_d, boardThickness]);
+        if (withObject)
+          polygon([face_lo, face_hi, face_hi - objectThickness * slope_n, face_lo - objectThickness * slope_n]);
+        if (withBoard) translate([-board_d / 2, 0]) square([board_d, boardThickness]);
       }
       clippedProfile(region);
     }
+  }
+
+  // The body's span along the hinge cut where either plate starts or stops,
+  // each stretch flagged with which plates cover it.
+  board_x0 = -board_w / 2;
+  board_x1 = board_w / 2;
+  object_x0 = faceOffsetX - object_w / 2;
+  object_x1 = faceOffsetX + object_w / 2;
+  span_breaks = let (cuts = [for (x = [body_x0, board_x0, board_x1, object_x0, object_x1, body_x1])
+      if (x >= body_x0 - 1e-6 && x <= body_x1 + 1e-6) x])
+    [for (x = sort(cuts)) x];
+  span_segments = [for (i = [0:len(span_breaks) - 2])
+    let (a = span_breaks[i], b = span_breaks[i + 1], m = (a + b) / 2)
+    if (b - a > 1e-6) [a, b, m > board_x0 && m < board_x1, m > object_x0 && m < object_x1]];
+
+  // The hollow, stretch by stretch. Each reaches a hair past its own ends so
+  // that neighbouring stretches overlap rather than meet across a face; the
+  // outermost ones run past the body's ends, which the body's own extent
+  // trims.
+  module spanHollow(region) {
+    for (seg = span_segments)
+      translate([seg[0] - (seg[0] <= body_x0 + 1e-6 ? 1 : eps), 0, 0])
+        rotate([90, 0, 90])
+          linear_extrude(height=seg[1] - seg[0] + (seg[0] <= body_x0 + 1e-6 ? 1 : eps) + (seg[1] >= body_x1 - 1e-6 ? 1 : eps))
+            profileHollow(region, seg[2], seg[3]);
+  }
+
+  // A plate that ends partway along the body has an end face that, printed
+  // on side, starts in mid-air. Each such end gets a 45-degree wedge leaning
+  // into the body's wall behind it, so the end grows out of the wall a layer
+  // at a time. The board plate's wedges stand outside its footprint and above
+  // the board surface; the object plate's stay behind the face, out of the
+  // object's way.
+  module boardEndWedges() {
+    for (end = [[board_x0, -1], [board_x1, 1]])
+      if (abs(end[0] - (end[1] < 0 ? body_x0 : body_x1)) > 1e-6)
+        translate([end[0], 0, 0]) rotate([90, 0, 0])
+          linear_extrude(height=board_d, center=true)
+            polygon([[0, 0], [0, boardThickness], [end[1] * boardThickness, boardThickness]]);
+  }
+
+  // In the object frame. The frame's X runs the other way when the mount is
+  // on the lower side, so each local end is matched to the world end it is.
+  module objectEndWedges() {
+    for (local_sign = [-1, 1])
+      let (world_end = faceOffsetX + (lower_side ? -local_sign : local_sign) * object_w / 2,
+           interior = world_end > body_x0 + 1e-6 && world_end < body_x1 - 1e-6)
+      if (interior)
+        translate([local_sign * object_w / 2, 0, 0]) rotate([90, 0, 0])
+          linear_extrude(height=object_d, center=true)
+            polygon([[0, -objectThickness], [0, 0], [local_sign * objectThickness, -objectThickness]]);
   }
 
   module solidHull() {
@@ -683,7 +746,7 @@ module opengridAngleConnector(
         // taken out of the hollow rather than added to the shell, so they
         // stop at its inside face.
         difference() {
-          extrudeAcross(body_w + 2) profileHollow(region);
+          spanHollow(region);
           if (endWalls) for (x = [body_x0 + wallThickness / 2, body_x1 - wallThickness / 2]) translate([x, 0, 0])
             cuboid([wallThickness, reach, reach]);
           if (bodyShape == "Truss") extrudeAcross(body_w + 4) stroke(truss_path, width=wallThickness);
@@ -760,6 +823,12 @@ module opengridAngleConnector(
       if (rightHand) multmatrix(ANGLE_CONNECTOR_MIRROR) bodyLeft(); else bodyLeft();
       boardPlate();
       multmatrix(pose) objectPlate();
+      // Only the profile bodies leave a plate's end hanging: Solid and
+      // Ribbed are hulls that taper from one plate's span to the other's.
+      if (bodyShape == "Tube" || bodyShape == "Truss" || bodyShape == "Arch") {
+        boardEndWedges();
+        multmatrix(pose) objectEndWedges();
+      }
     }
   }
 

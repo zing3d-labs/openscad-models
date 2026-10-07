@@ -252,6 +252,28 @@ mouths face the bed as well. *Open:* how well an openConnect slot cut into a
 vertical wall prints has not been tested. The base has `Slot_Entry_Ramp_Flip` for
 side-printing, and it is not exposed here yet.
 
+**Plates of different widths.** On side, the part is built up along the hinge,
+so wherever the face is wider than the board, slid along it, or narrower than it,
+one plate's end starts partway up the print. That end used to start in mid-air:
+the whole-part check (every 1mm layer, anything more than 45° past the layer
+beneath counts) found 253mm² unsupported at the board plate's end on a face slid
+40mm. The set-out example had 383mm², and the upright bracket arm 132mm². Two
+changes fix it, for Tube, Truss and Arch:
+
+- Along any stretch of the hinge that one plate does not reach, the body keeps a
+  wall of its own where that plate would be: a floor past the board's ends, a
+  face-side wall past the face's.
+- Each plate end that falls partway along the body gets a 45° wedge that leans
+  into that wall, so the end grows out of it a layer at a time. The board plate's
+  wedges stand outside its footprint and above the board surface. The face
+  plate's stay behind the face, out of the object's way.
+
+After the fix the same check finds nothing at those transitions beyond strips
+under 1mm wide (0.9mm × 16mm on the bracket arm), which print as ordinary
+overhangs. What remains on every layout is the studs' own 2.4mm ledges. Solid and
+Ribbed need neither change: they are hulls that taper from one plate's span to
+the other's.
+
 ---
 
 ## Verification done
@@ -287,7 +309,7 @@ check has a control that has to come out non-empty, so a pass is evidence.
   of the object plate's zone. The mate checks above are what prove it.
 - **Every sanity check fires.** Each error and warning was triggered by a
   placement built for it, and the defaults trigger none.
-- **One body.** All 83 cases in `opengrid_angle_connector.tests.yaml` measure
+- **One body.** All 91 cases in `opengrid_angle_connector.tests.yaml` measure
   one body. The exception is a closed Arch, which reports its sealed hollow as a
   second shell.
 - **The base is unchanged.** `opengrid_mount_base`, `opengrid_block` and

@@ -109,8 +109,14 @@ features:
       center: [0, 0, 30]
     matrix:
       Face_Offset_X: [0, 28, 56]
+      Body_Shape: [Truss, Tube, Arch]
     cases:
       - params: {Face_Offset_X: 28}
+        render: true
+      # A face narrower than the board: the face plate's ends fall partway
+      # along the body, and each gets a 45-degree wedge so it prints on side.
+      - name: narrow-face
+        params: {Object_Units_X: 2}
         render: true
 
   body_shape:
