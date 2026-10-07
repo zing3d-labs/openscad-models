@@ -23,6 +23,13 @@ It has not been printed. Anything marked *open* still needs a decision.
 | Body shape priority | **Flexibility.** Offer several bodies rather than pick one. Five are in the draft. |
 | Scope of this draft | Design doc plus a working prototype part. |
 | Board-side interface | openConnect slots (the board carries connectors), or snaps, both drawn by `openGridMountBase()`. Slots are not reimplemented. |
+| Generic, not keyboard-specific | The part is a general angle connector. The keyboard tent is the motivating case, not a target: there is no keyboard tilt, footprint or case layout to design for, and the defaults are generic. |
+| Object-face layout | A generic grid (`Object_Units_X/Y` and a placement pattern) by default, with an explicit list of stud positions as an override for objects whose slots are off the 28mm pitch. *Not built yet.* |
+| Holding the slide | The openConnect lock nubs alone. No stop and no latch. |
+| Toe-in and roll | Not in the Customizer for now. `toeAngle` and `rollAngle` stay module-only, so they can be exposed later without reworking the pose. |
+| Cable pass-through | None on the closed bodies. Ribbed's open back is the cable route. |
+| Arch past the board | Kept. At shallow tilts Arch reaches past the board's far edge; the part warns when it does. |
+| Studs come from the mount base | `openGridMountBase()` gets a stud mode with the same placement rules as slots, and this part moves onto it. The single-stud helper here is a stopgap. |
 | Scope vs. the arbitrary-angle beam bracket ([#5](https://github.com/zing3d-labs/openscad-models/issues/5)) | A separate part, built for strength under typing load. The overlap is noted below and not shipped here. |
 
 ### Made in the draft, to review
@@ -48,8 +55,7 @@ These were judgment calls made to get a working part. Each one is a parameter, s
    height that keeps the object plate clear of the board plate. See *Placing the
    face* for moving it.
 6. **Default sizes:** board 4×2 units, object face 4×3 units, 5mm plates, 45° tilt,
-   studs on the corners. These are placeholders until the keyboard case is measured
-   (*open*, below).
+   studs on the corners. These are generic defaults, not sized for any one object.
 
 ---
 
@@ -152,7 +158,8 @@ It warns when:
   `Low_Edge_Clearance` asks for;
 - the body stands on less than one tile (28mm) of the board's depth;
 - the face and board overlap by less than one tile along the hinge;
-- the face reaches more than 10mm past the board's edge as a cantilever (a note).
+- the face reaches more than 10mm past the board's edge as a cantilever (a note);
+- an Arch reaches more than 10mm past the board's far edge.
 
 The geometric checks apply to the single-axis pose. With toe or roll set, only
 the hinge-overlap warning runs.
@@ -335,34 +342,19 @@ check has a control that has to come out non-empty, so a pass is evidence.
 
 ## Open questions
 
-1. **Keyboard case interface.** Where are the case's slots, and how many? The
-   object face is a generic grid (`Object_Units_X/Y`, studs on Corners). Should
-   it instead follow the case's real slot layout, as a list of positions? Do the
-   slots need designing into the case too?
-2. **Target tilt for the keyboard.** The photos suggest steep, about 60–90°.
-   That sets how tall the part is, and whether the face's top edge needs its
-   own support.
-3. **Lock or stop.** Gravity is neutral along the hinge, so only the lock nubs
-   hold the slide. Is that enough with a trackball, or should the board side
-   take an `opengrid_block` stop (it exists for this) or a printed latch?
-4. **Toe-in.** The halves in the photos look rotated toward each other. For the
-   board face, that can come from where the parts sit on the grid, or from a toe
-   angle on the part. Which?
-5. **Cable pass-through.** Ribbed's open back gives a route already. Do the
-   closed bodies need a hole or notch for the TRRS or USB cable?
-6. **Arch footprint.** Is Arch reaching past the board at shallow tilts
-   acceptable? If not, cap it at the board edge, at the cost of support under
-   the face's top.
+None.
 
 ## Follow-up work proposed
 
-- A **stud mode in `openGridMountBase()`** (`mountType = "openConnect Studs"`),
+- **A stud mode in `openGridMountBase()`** (`mountType = "openConnect Studs"`),
   with the same placement and fit rules as slots, circular bases included. The
-  draft adds only the single-stud helper `openGridMountStud()` there, verified
-  as above. Choosing stud positions is done here for rectangular grids, and that
-  should move into the base.
+  draft adds only the single-stud helper `openGridMountStud()` there, verified as
+  above. Choosing stud positions is done here for rectangular grids, and that
+  moves into the base. This part then calls the base for its studs.
+- **An explicit stud-position list** for the object face, overriding the grid.
 - **A test print** of the default part, plus a slot coupon printed on its side,
   to settle the open printing question.
 - **Fix or warn** about the base's Right-side nub (see *Findings*).
-- **Toe and roll in the Customizer**, once question 4 is answered.
+- **Toe and roll in the Customizer**, which also means Tube, Truss and Arch must
+  follow a compound pose.
 - **The shared angle library**, when #5 is picked up.

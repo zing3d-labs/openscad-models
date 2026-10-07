@@ -607,6 +607,13 @@ module opengridAngleConnector(
     [back_low]
   );
   arch_region_ccw = is_polygon_clockwise(arch_region) ? reverse(arch_region) : arch_region;
+  // At shallow tilts the face's top edge is behind the board, so the arch
+  // bulges past the board's far edge to reach it.
+  arch_reach = max([for (p = arch_region) p.x]) - board_d / 2;
+  if (bodyShape == "Arch" && singleAxis && arch_reach > ANGLE_CONNECTOR_CANTILEVER_NOTE)
+    echo(str("opengridAngleConnector: WARNING - the Arch reaches ", arch_reach,
+      "mm past the board plate's far edge, over grid the board does not cover. Use Truss or Tube ",
+      "for a body that stays on the board, or raise Tilt_Angle."));
 
   rib_xs = [for (k = [0:max(ribCount, 2) - 1]) body_x0 + ribThickness / 2 + k * (body_w - ribThickness) / (max(ribCount, 2) - 1)];
 
