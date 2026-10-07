@@ -29,7 +29,7 @@
   above the board surface, how far it is set across the hinge from the
   board's trailing edge (the edge the face rises away from), and how far the
   face is slid along the hinge. The mount goes on whichever side of the
-  tilted plate faces AWAY from the board (Object_Side overrides it): the
+  tilted plate faces AWAY from the board, always: the
   upper side when the face leans back over the board, the lower side when it
   is set out past the board like a bracket arm. The body always lives on the
   board's side of the plate, so the object never shares its space. The board
@@ -145,13 +145,6 @@ Low_Edge_Offset = 0;
 // plate's centre.
 Face_Offset_X = 0;
 
-// Which side of the tilted plate carries the mount. "Away From Board" puts it
-// on whichever side the board is not, so the body stays between the board
-// and the plate and the object hangs clear of both: the upper side when the
-// face leans back over the board, the lower side when it is set out past the
-// board like a bracket arm. Upper and Lower force one.
-Object_Side = "Away From Board"; // [Away From Board, Upper, Lower]
-
 // How far below the face's low edge, measured down the slope, the space in
 // front of the face is kept clear - for an object that overhangs the low
 // edge. Below that the body may reach in front of the face to buttress it
@@ -236,7 +229,6 @@ opengridAngleConnector(
   lowEdgeHeight=Low_Edge_Height,
   lowEdgeOffset=Low_Edge_Offset,
   faceOffsetX=Face_Offset_X,
-  objectSide=Object_Side,
   lowEdgeClearance=Low_Edge_Clearance,
   boardUnitsX=Board_Units_X,
   boardUnitsY=Board_Units_Y,
@@ -295,18 +287,19 @@ function angleConnectorObjectPose(tilt, lift, hingeY, objectDepth, toe = 0, roll
   move([offsetX, hingeY, lift]) * zrot(toe) * xrot(tilt) * yrot(roll) * back(objectDepth / 2)
     * (lowerSide ? yrot(180) : ident(4));
 
-// Whether the mount goes on the plate's lower side. "Away From Board" asks
-// which side of the face's plane the board plate's top centre falls on, and
-// takes the other. Decided at the height asked for, or at the board's top
-// face when the height is left to the part, since the height the part picks
-// depends on the side.
-function angleConnectorLowerSide(objectSide, tilt, hingeY, lowEdgeHeight, boardThickness) =
-  objectSide == "Lower" ? true
-  : objectSide == "Upper" ? false
-  : let (
-      decided_at = lowEdgeHeight == 0 ? boardThickness : lowEdgeHeight,
-      upper_n = [-sin(tilt), cos(tilt)]
-    ) ([0, boardThickness] - [hingeY, decided_at]) * upper_n > 1e-6;
+// Whether the mount goes on the plate's lower side. The mount always faces
+// away from the board, so the body stays between the board and the plate
+// and the object hangs clear of both: this asks which side of the face's
+// plane the board plate's top centre falls on, and the mount takes the
+// other. The upper side when the face leans back over the board, the lower
+// side when it is set out past the board like a bracket arm. Decided at the
+// height asked for, or at the board's top face when the height is left to
+// the part, since the height the part picks depends on the side.
+function angleConnectorLowerSide(tilt, hingeY, lowEdgeHeight, boardThickness) =
+  let (
+    decided_at = lowEdgeHeight == 0 ? boardThickness : lowEdgeHeight,
+    upper_n = [-sin(tilt), cos(tilt)]
+  ) ([0, boardThickness] - [hingeY, decided_at]) * upper_n > 1e-6;
 
 // The face's slope coordinates in the side view (Y, Z): u runs up the face
 // from its low edge, n points out of the face - out of whichever side
@@ -405,7 +398,6 @@ module opengridAngleConnector(
   lowEdgeHeight = 0,
   lowEdgeOffset = 0,
   faceOffsetX = 0,
-  objectSide = "Away From Board",
   lowEdgeClearance = 10,
   toeAngle = 0,
   rollAngle = 0,
@@ -452,7 +444,7 @@ module opengridAngleConnector(
   x_overlap = min(board_w / 2, faceOffsetX + object_w / 2) - max(-board_w / 2, faceOffsetX - object_w / 2);
 
   hinge_y = -board_d / 2 + lowEdgeOffset;
-  lower_side = angleConnectorLowerSide(objectSide, tiltAngle, hinge_y, lowEdgeHeight, boardThickness);
+  lower_side = angleConnectorLowerSide(tiltAngle, hinge_y, lowEdgeHeight, boardThickness);
 
   slope_u = angleConnectorSlopeU(tiltAngle);
   slope_n = angleConnectorSlopeN(tiltAngle, lower_side);

@@ -86,15 +86,10 @@ features:
       # rather than swept, where it would collide with its positive twin.
       - name: set-in-front-of-the-board
         params: {Low_Edge_Height: 15, Low_Edge_Offset: -20, Body_Shape: Truss}
-      # Set out near the far edge, the board is on the face's upper side, so
-      # the mount goes underneath, away from it.
-      - name: set-out-forced-upper
-        params: {Low_Edge_Height: 20, Low_Edge_Offset: 20, Body_Shape: Truss, Object_Side: Upper}
-      # Forcing a side is only valid where the board is not on it: Lower on a
-      # face set out past the board is what Away From Board picks anyway, and
-      # Upper there puts the board where the object goes, which is refused.
-      - name: set-out-forced-lower
-        params: {Low_Edge_Height: 20, Low_Edge_Offset: 80, Body_Shape: Truss, Object_Side: Lower}
+      # Set in only a little, the board is still behind the face, so the mount
+      # stays on the upper side. Set out to 80 (above) it goes underneath.
+      - name: set-in-a-little
+        params: {Low_Edge_Height: 20, Low_Edge_Offset: 20, Body_Shape: Truss}
       - name: lower-side-upright
         params: {Tilt_Angle: 90, Low_Edge_Height: 0, Low_Edge_Offset: 90, Body_Shape: Truss}
         render: true

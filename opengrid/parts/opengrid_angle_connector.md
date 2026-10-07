@@ -63,7 +63,6 @@ Customizer names; the module takes the same in camelCase.
 | `Low_Edge_Height` | mm ≥ 0, 0 = auto | 0 | Height of the face's low edge above the board surface. Auto is `Board_Thickness + Object_Thickness·cos(tilt)`. |
 | `Low_Edge_Offset` | mm, any sign | 0 | How far the low edge is set across the hinge from the board's trailing edge (the edge the face rises away from). Positive moves it the way the face rises; it may be negative or run past the far edge. |
 | `Face_Offset_X` | mm | 0 | Slides the face along the hinge relative to the board's centre. |
-| `Object_Side` | Away From Board, Upper, Lower | Away From Board | Which side of the tilted plate carries the mount. See *Placing the face*. |
 | `Low_Edge_Clearance` | mm ≥ 0 | 10 | How far below the low edge, down the slope, the space in front of the face is kept clear for an overhanging object. |
 | `Board_Units_X/Y` | 1–12 | 4 / 2 | Board-plate footprint in 28mm units. |
 | `Board_Thickness` | ≥ 3.5 for openConnect | 5 | |
@@ -103,9 +102,9 @@ Object_Units_X = 5; Object_Units_Y = 3;
 Low_Edge_Height = 20; Low_Edge_Offset = 80;
 ```
 
-**Which side the mount goes on.** By default, the side of the tilted plate that
-faces *away* from the board, so the body lives on the board's side of the plate
-and the object never shares its space:
+**Which side the mount goes on.** Always the side of the tilted plate that faces
+*away* from the board, so the body lives on the board's side of the plate and the
+object never shares its space. There is no override:
 
 - **Upper side:** the face leans back over the board. This is the default
   placement, and the tent case.
@@ -113,7 +112,7 @@ and the object never shares its space:
   the example above. The object hangs on the plate's outside.
 
 The side is decided by which side of the face's plane the board plate's top
-centre falls on. `Object_Side = Upper` or `Lower` forces one. Turning the plate
+centre falls on. Turning the plate
 over is a half-turn about its own up-slope axis, never a mirror, so studs stay
 true openConnect heads. Slide names stay in the part's own axes: "Left" is still
 −X whichever way the plate faces.
@@ -273,10 +272,11 @@ check has a control that has to come out non-empty, so a pass is evidence.
     Truss and Ribbed, in both hands (control: 5472mm³, 15 studs);
   - the face slid 40mm along the hinge;
   - the low edge set 30mm in front of the board;
-  - the example with the mount on the lower side (as Away From Board picks
-    it), with studs in all four slide directions and with slots. Control: the
-    studs it meets lie at Y = 43–95mm, all past the board's far edge at 42mm;
-  - Upper and Lower forced at 30°, 60° and 90°.
+  - the example with the mount on the lower side, with studs in all four slide
+    directions and with slots. Control: the studs it meets lie at Y = 43–95mm,
+    all past the board's far edge at 42mm;
+  - a face set out past the board at 30°, 60° and 90°, and leaning back over
+    it at the same angles.
 - **Object slots take connector heads.** Empty for both hands and all four
   directions.
 - **Board face mates.** Connector heads at every tile give an empty
@@ -287,7 +287,7 @@ check has a control that has to come out non-empty, so a pass is evidence.
   of the object plate's zone. The mate checks above are what prove it.
 - **Every sanity check fires.** Each error and warning was triggered by a
   placement built for it, and the defaults trigger none.
-- **One body.** All 84 cases in `opengrid_angle_connector.tests.yaml` measure
+- **One body.** All 83 cases in `opengrid_angle_connector.tests.yaml` measure
   one body. The exception is a closed Arch, which reports its sealed hollow as a
   second shell.
 - **The base is unchanged.** `opengrid_mount_base`, `opengrid_block` and
