@@ -16,8 +16,8 @@ version: 1
 part: opengrid_mount_base.scad
 description: >-
   The base an openGrid accessory mounts by — a rectangular slab or a disc,
-  carrying either openConnect slots or openGrid snaps on the face that meets
-  the board.
+  carrying openConnect slots, openGrid snaps or openConnect studs on the face
+  that meets the board.
 
 defaults:
   imgsize: [900, 700]
@@ -39,10 +39,11 @@ features:
   mount_type:
     label: Mount type
     description: >-
-      openConnect slots cut into the board-facing face, or openGrid snaps
-      standing proud of it. They are alternatives, never both.
+      openConnect slots cut into the board-facing face, or openGrid snaps or
+      openConnect studs standing proud of it. They are alternatives, never two
+      at once.
     matrix:
-      Mount_Type: [openConnect, Snaps]
+      Mount_Type: [openConnect, Snaps, openConnect Studs]
       Base_Shape: [Rectangular, Circular]
     cases:
       - params: {Mount_Type: openConnect, Base_Shape: Rectangular}
@@ -54,6 +55,8 @@ features:
       # Thickness. That is the frame the whole file rests on.
       - name: full-tile-snaps
         params: {Mount_Type: Snaps, Grid_Type: Full}
+        render: true
+      - params: {Mount_Type: openConnect Studs, Base_Shape: Rectangular}
         render: true
 
   grid_size:
@@ -252,6 +255,53 @@ features:
         params: {Slot_Lock_Distribution: Top Corners, Slot_Slide_Direction: Up}
       - name: entry-ramp-flipped
         params: {Slot_Entry_Ramp_Flip: true}
+
+  openconnect_studs:
+    label: openConnect stud layout
+    description: >-
+      Printed connector heads standing proud of the face, for a slotted part to
+      slide onto. They go exactly where the same base would cut slots, so a
+      studded base and a slotted one with the same settings are a mating pair.
+    camera:
+      eye: [180, -180, -130]
+      center: [0, 0, 0]
+    parameters:
+      Mount_Type: openConnect Studs
+      Units_X: 3
+      Units_Y: 3
+    matrix:
+      Slot_Position: [All, Staggered, Edge Rows, Edge Columns, Corners]
+      Slot_Slide_Direction: [Up, Down, Left, Right]
+    cases:
+      - params: {Slot_Position: All, Slot_Slide_Direction: Up}
+        render: true
+      - params: {Slot_Position: Corners, Slot_Slide_Direction: Up}
+        render: true
+      - params: {Slot_Position: Corners, Slot_Slide_Direction: Right}
+        render: true
+      # Staggered on an even grid is the case where a stud placed at the
+      # grid's own position rather than the slotted partner's would land on a
+      # bare tile, so it is the one that proves the pairing.
+      - name: staggered-even-grid
+        params: {Units_X: 4, Units_Y: 2, Slot_Position: Staggered}
+        render: true
+      # A refined corner drops the studs a slot could not be cut at, even
+      # though the stud itself would have fitted - see the header.
+      - name: fillet-drops-corner-studs
+        params: {Corner_Refinement_Type: Fillet, Corner_Refinement_Size: 10}
+        render: true
+      # Studs take nothing out of the slab, so they build on one thinner than
+      # the openConnect slot minimum.
+      - name: thin-slab
+        params: {Thickness: 2}
+      # A disc whose Maximal grid is offset across the slide axis by something
+      # other than nothing or half a tile - [9, 19]mm at 138 - which the studs
+      # have to mirror to meet the slotted disc turned over to face it. At 0 or
+      # 14mm the mirror lands every mount back on itself, so most discs cannot
+      # tell a stud placed right from one placed wrong; this one can.
+      - name: offset-disc
+        params: {Base_Shape: Circular, Diameter: 138, Mount_Alignment: Maximal}
+        render: true
 
   snap_placement:
     label: Snap placement
