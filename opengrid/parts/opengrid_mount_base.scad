@@ -603,11 +603,19 @@ function openGridMountTurnedLockDistribution(slotSlideDirection = "Up", slotLock
 //
 // Done uniformly, every one of those slots is put right the same way: the
 // library's body, entry ramp and all, keeps its mirror, and only its nubs are
-// swapped for the true ones. Those are taken from the same grid drawn with the
-// opposite ramp flip, which is not mirrored - the difference of that grid
-// without nubs and with them. Asked for on the other side, because the ramp
-// flip carries the nub across, so they land exactly where the library put
-// its own. Measured on --render output, openconnect_head() differenced
+// swapped for the true ones. Those come from the same grid drawn with the
+// opposite ramp flip, which is not mirrored, asked for on the other side
+// because the ramp flip carries the nub across - so they land exactly where
+// the library put its own. Everywhere but the entry ramp the two grids are
+// the same slot, so the mirrored body is cut back to that grid, nubs and all,
+// and the ramp - the one part only the mirrored grid has - is added back.
+//
+// Built that way round on purpose. The obvious construction, subtracting the
+// unmirrored nubs from the mirrored body, leaves zero-volume shells where a
+// nub meets the entry ramp (the two touch along a face), and those count as
+// extra bodies in the exported mesh. This one leaves a single body.
+//
+// Measured on --render output, openconnect_head() differenced
 // against a slot cutter is then empty for all four directions, both lock sides
 // and both ramp flips, where before it left the 0.126mm^3 in four of the
 // sixteen. A mirrored head still leaves it in eight: the half where the
@@ -651,11 +659,14 @@ module openGridMountSlotGrid(
   if (lockDistribution == "None" || !openGridMountSlotMirrored(slotSlideDirection, slotEntryRampFlip))
     grid(lockDistribution, lockSide, slotEntryRampFlip);
   else
-    difference() {
-      grid("None", lockSide, slotEntryRampFlip);
-      difference() {
-        grid("None", lockSide, !slotEntryRampFlip);
+    union() {
+      intersection() {
+        grid("None", lockSide, slotEntryRampFlip);
         grid(lockDistribution, lockSide == "Left" ? "Right" : "Left", !slotEntryRampFlip);
+      }
+      difference() {
+        grid("None", lockSide, slotEntryRampFlip);
+        grid("None", lockSide, !slotEntryRampFlip);
       }
     }
 }
