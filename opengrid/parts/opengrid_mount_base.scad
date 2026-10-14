@@ -1321,10 +1321,12 @@ module openGridMountBase(
   module topEdgeMask() {
     reach = total_thickness * 2 + top_edge_size + 1;
     up(total_thickness / 2) {
+      // undef rather than 0 for the break not asked for: cyl() refuses a
+      // rounding2 and a chamfer2 together, and counts a 0 as given.
       if (circularBase) {
         cyl(h=reach, d=diameter, anchor=TOP,
-          rounding2=(topEdgeRefinementType == "Fillet" ? top_edge_size : 0),
-          chamfer2=(topEdgeRefinementType == "Chamfer" ? top_edge_size : 0));
+          rounding2=(topEdgeRefinementType == "Fillet" ? top_edge_size : undef),
+          chamfer2=(topEdgeRefinementType == "Chamfer" ? top_edge_size : undef));
       } else {
         cuboid([x_size, y_size, reach], anchor=TOP, edges=TOP,
           rounding=(topEdgeRefinementType == "Fillet" ? top_edge_size : 0),
