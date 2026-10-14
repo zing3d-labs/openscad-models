@@ -253,6 +253,22 @@ features:
       - name: entry-ramp-flipped
         params: {Slot_Entry_Ramp_Flip: true}
 
+  lock_nub:
+    label: openConnect lock nub
+    description: >-
+      The lock nub in every slot shape the library can be asked for. The
+      library reaches some of them by mirroring its slot, which would hand the
+      nub the shape meant for the other side of the head; each has to come out
+      with the nub that fits the detent it meets.
+    parameters:
+      Mount_Type: openConnect
+      Units_X: 1
+      Units_Y: 1
+    matrix:
+      Slot_Slide_Direction: [Up, Down, Left, Right]
+      Slot_Lock_Side: [Left, Right]
+      Slot_Entry_Ramp_Flip: [false, true]
+
   snap_placement:
     label: Snap placement
     description: >-
