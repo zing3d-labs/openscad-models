@@ -253,6 +253,45 @@ features:
       - name: entry-ramp-flipped
         params: {Slot_Entry_Ramp_Flip: true}
 
+  openconnect_studs:
+    label: openConnect studs
+    description: >-
+      The openConnect mount turned inside out — true openConnect heads standing
+      proud of the face, for a slotted part to slide onto. They go exactly
+      where the openConnect mount would cut its slots, by the same rules, and
+      are turned to face the slide direction rather than mirrored.
+    camera:
+      eye: [180, -180, -130]
+      center: [0, 0, 0]
+    parameters:
+      Mount_Type: openConnect Studs
+      Units_X: 3
+      Units_Y: 3
+    matrix:
+      Slot_Position: [All, Staggered, Edge Rows, Edge Columns, Corners]
+      Slot_Slide_Direction: [Up, Down, Left, Right]
+    cases:
+      - params: {Slot_Position: All, Slot_Slide_Direction: Up}
+        render: true
+      - params: {Slot_Position: Corners, Slot_Slide_Direction: Right}
+        render: true
+      # On an even grid the slot mode's turn moves Staggered to its complement,
+      # and the studs have to follow it to land where the slots would be.
+      - name: staggered-even-grid
+        params: {Units_X: 2, Units_Y: 2, Slot_Position: Staggered}
+        render: true
+      # A corner refinement costs a stud exactly when it costs the slot: here
+      # the slot survives on a trimmed entry, so the stud stays.
+      - name: one-by-one-filleted
+        params: {Units_X: 1, Units_Y: 1, Corner_Refinement_Type: Fillet, Corner_Refinement_Size: 3}
+      - name: on-a-disc
+        params: {Base_Shape: Circular, Diameter: 100}
+        render: true
+      # The lock settings belong to the slotted part; every stud carries both
+      # notches, so these must measure identical to the default.
+      - name: lock-settings-ignored
+        params: {Slot_Lock_Side: Right, Slot_Lock_Distribution: None}
+
   snap_placement:
     label: Snap placement
     description: >-
