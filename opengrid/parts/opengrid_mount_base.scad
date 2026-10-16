@@ -600,14 +600,8 @@ function openGridMountSlotCutterOutline(slotSlideDirection = "Up", trim = 0) =
 // difference empty, a mirrored one leaves 74-96 facets of the head standing in
 // the nub. So the cutter is TURNED, with rot(), and never mirrored.
 //
-// That empty difference is exact at a slide direction of "Up". The other three
-// leave the same 74-96 facets in the nub, and that is the library's own doing
-// rather than the turn's: openconnect_slot_grid() used entirely on its own
-// terms, with no turn of ours anywhere, leaves it for "Down", "Left" and
-// "Right" too, because the library reaches those three by mirroring its "Up"
-// slot. It squeezes rather than blocks - the nub is a detent, not the retainer
-// - and the retaining lip this is all for comes out identical in all four. Do
-// not read it as something the turn introduced.
+// The library mirrors on its own account too, and the turn cannot undo that:
+// openGridMountSlotGrid() below covers where and how it is put right.
 //
 // A turn is about an axis, and the axis is the one the slot slides along,
 // because that is the axis the cutter is symmetric across:
@@ -649,6 +643,89 @@ function openGridMountTurnedLockDistribution(slotSlideDirection = "Up", slotLock
   : slotLockDistribution;
 
 // ---------------------------------------------------------------------------
+// The library's own mirror.
+//
+// openconnect_slot_grid() reaches "Down" and "Right" by spinning its slot AND
+// mirroring it, and slot_entryramp_flip is a mirror as well. Where the two
+// leave the slot mirrored an odd number of times, each lock nub is the one
+// made for the other side of the head: the left one is sheared over by
+// nub_taperin and the right one is straight, and mirroring a slot moves the
+// shapes across with it. A sheared nub against the head's straight detent
+// stands 0.126mm^3 into the head (z 0.9-1.78), which is a tighter click than
+// intended; a straight nub against the sheared detent fits, but is 0.663mm^3
+// where the true nub is 0.854mm^3, so that click is looser than intended.
+//
+// Done uniformly, every one of those slots is put right the same way: the
+// library's body, entry ramp and all, keeps its mirror, and only its nubs are
+// swapped for the true ones. Those come from the same grid drawn with the
+// opposite ramp flip, which is not mirrored, asked for on the other side
+// because the ramp flip carries the nub across - so they land exactly where
+// the library put its own. Everywhere but the entry ramp the two grids are
+// the same slot, so the mirrored body is cut back to that grid, nubs and all,
+// and the ramp - the one part only the mirrored grid has - is added back.
+//
+// Built that way round on purpose. The obvious construction, subtracting the
+// unmirrored nubs from the mirrored body, leaves zero-volume shells where a
+// nub meets the entry ramp (the two touch along a face), and those count as
+// extra bodies in the exported mesh. This one leaves a single body.
+//
+// Measured on --render output, openconnect_head() differenced
+// against a slot cutter is then empty for all four directions, both lock sides
+// and both ramp flips, where before it left the 0.126mm^3 in four of the
+// sixteen. A mirrored head still leaves it in eight: the half where the
+// mirror sets a sheared nub against a straight detent.
+function openGridMountSlotMirrored(slotSlideDirection = "Up", slotEntryRampFlip = false) =
+  (slotSlideDirection == "Down" || slotSlideDirection == "Right") != slotEntryRampFlip;
+
+// openconnect_slot_grid() with the nubs of a mirrored slot put right, as above.
+// Takes the library's own arguments in its own frame - lockSide is the side
+// the library is asked for, already turned - and draws the same grid in the
+// same place. A grid with no nubs, or whose slots are not mirrored, is the
+// library's call unchanged.
+module openGridMountSlotGrid(
+  xUnits = 1,
+  yUnits = 1,
+  slotSlideDirection = "Up",
+  slotPosition = "All",
+  lockDistribution = "None",
+  lockSide = "Left",
+  slotEntryRampFlip = false,
+  limitRegion = [],
+  exceptSlotPos = []
+) {
+  module grid(distribution, side, flip) {
+    openconnect_slot_grid(
+      slot_type="slot",
+      horizontal_grids=xUnits,
+      vertical_grids=yUnits,
+      slot_slide_direction=slotSlideDirection,
+      slot_position=slotPosition,
+      slot_lock_distribution=distribution,
+      slot_lock_side=side,
+      slot_entryramp_flip=flip,
+      limit_region=limitRegion,
+      except_slot_pos=exceptSlotPos,
+      excess_thickness=EPS,
+      anchor=TOP
+    );
+  }
+
+  if (lockDistribution == "None" || !openGridMountSlotMirrored(slotSlideDirection, slotEntryRampFlip))
+    grid(lockDistribution, lockSide, slotEntryRampFlip);
+  else
+    union() {
+      intersection() {
+        grid("None", lockSide, slotEntryRampFlip);
+        grid(lockDistribution, lockSide == "Left" ? "Right" : "Left", !slotEntryRampFlip);
+      }
+      difference() {
+        grid("None", lockSide, slotEntryRampFlip);
+        grid("None", lockSide, !slotEntryRampFlip);
+      }
+    }
+}
+
+// ---------------------------------------------------------------------------
 
 // One openConnect slot cutter, turned to cut into a board-facing face lying in
 // the local Z = 0 plane with the material above it. Subtract it from a base in
@@ -673,17 +750,11 @@ module openGridMountSlotCutter(
 ) {
   rot(180, v=openGridMountSlotFlipAxis(slotSlideDirection))
     difference() {
-      openconnect_slot_grid(
-        slot_type="slot",
-        horizontal_grids=1,
-        vertical_grids=1,
-        slot_slide_direction=slotSlideDirection,
-        slot_position="All",
-        slot_lock_distribution=locked ? "All" : "None",
-        slot_lock_side=openGridMountTurnedLockSide(slotLockSide),
-        slot_entryramp_flip=slotEntryRampFlip,
-        excess_thickness=EPS,
-        anchor=TOP
+      openGridMountSlotGrid(
+        slotSlideDirection=slotSlideDirection,
+        lockDistribution=locked ? "All" : "None",
+        lockSide=openGridMountTurnedLockSide(slotLockSide),
+        slotEntryRampFlip=slotEntryRampFlip
       );
       if (trimEntry) openGridMountEntryTrimStrip(slotSlideDirection);
     }
@@ -1303,20 +1374,17 @@ module openGridMountBase(
     down(thickness / 2)
       rot(180, v=openGridMountSlotFlipAxis(slotSlideDirection))
         difference() {
-          openconnect_slot_grid(
-            slot_type="slot",
-            horizontal_grids=xUnits,
-            vertical_grids=yUnits,
-            slot_slide_direction=slotSlideDirection,
-            slot_position=slotPosition,
-            slot_lock_distribution=openGridMountTurnedLockDistribution(
+          openGridMountSlotGrid(
+            xUnits=xUnits,
+            yUnits=yUnits,
+            slotSlideDirection=slotSlideDirection,
+            slotPosition=slotPosition,
+            lockDistribution=openGridMountTurnedLockDistribution(
               slotSlideDirection, slotLockDistribution),
-            slot_lock_side=openGridMountTurnedLockSide(slotLockSide),
-            slot_entryramp_flip=slotEntryRampFlip,
-            limit_region=[base_outline],
-            except_slot_pos=dropped_slots,
-            excess_thickness=EPS,
-            anchor=TOP
+            lockSide=openGridMountTurnedLockSide(slotLockSide),
+            slotEntryRampFlip=slotEntryRampFlip,
+            limitRegion=[base_outline],
+            exceptSlotPos=dropped_slots
           );
           for (cp = trimmed_slots)
             openGridMountEntryTrimStrip(slotSlideDirection, cp);
