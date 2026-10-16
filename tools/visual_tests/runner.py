@@ -84,6 +84,29 @@ def default_jobs() -> int:
     return max(1, (os.cpu_count() or 2))
 
 
+def _new_case(part: Path, feature: Feature, case: Case, head: Side, work: Path) -> dict[str, Any]:
+    """A case the base checkout's spec does not have. There is no before to
+    compare it with - rendering the base part with parameters it has never
+    heard of only shows what the old part makes of an unknown setting - so it
+    is rendered on the head alone and reported as new rather than as changed."""
+    head_image, head_measurements, errors = _render_case(
+        head, part, feature, case, work, want_image=case.render
+    )
+    return {
+        "name": case.name,
+        "parameters": case.parameters,
+        "rendered": case.render,
+        "new": True,
+        "changed": False,
+        "image": None,
+        "images": {"head": str(head_image.relative_to(work))} if head_image else {},
+        "metrics": None,
+        "base": None,
+        "head": head_measurements.to_dict() if head_measurements else None,
+        "errors": errors,
+    }
+
+
 def _compare_case(
     part: Path,
     feature: Feature,
@@ -144,8 +167,15 @@ def run_part(
     head: Side,
     work: Path,
     jobs: int | None = None,
+    known_cases: set[tuple[str, str]] | None = None,
 ) -> dict[str, Any]:
-    """Measure every case and picture the designated ones, on both sides."""
+    """Measure every case and picture the designated ones, on both sides.
+
+    `known_cases` is the (feature key, case name) pairs the base checkout's own
+    spec defines. A case outside it is new in this change and is rendered on
+    the head only. None means the base spec could not be read, and every case
+    is compared as before.
+    """
     work.mkdir(parents=True, exist_ok=True)
     started = time.monotonic()
     features: list[dict[str, Any]] = []
@@ -154,7 +184,9 @@ def run_part(
     with ThreadPoolExecutor(max_workers=workers) as pool:
         pending = {
             feature.key: [
-                pool.submit(_compare_case, part, feature, case, base, head, work)
+                pool.submit(_new_case, part, feature, case, head, work)
+                if known_cases is not None and (feature.key, case.name) not in known_cases
+                else pool.submit(_compare_case, part, feature, case, base, head, work)
                 for case in feature.cases
             ]
             for feature in spec.features
@@ -163,10 +195,14 @@ def run_part(
 
     for feature in spec.features:
         case_results = results[feature.key]
+        new_cases = sum(1 for c in case_results if c.get("new"))
         features.append(
             {
                 "key": feature.key,
                 "label": feature.label,
+                # New as a whole when the base spec has none of its cases.
+                "new": new_cases == len(case_results),
+                "new_cases": new_cases,
                 "description": feature.description,
                 "camera": {"eye": list(feature.camera.eye), "center": list(feature.camera.center)},
                 "changed": any(c["changed"] for c in case_results),
@@ -187,6 +223,7 @@ def run_part(
         "case_count": spec.case_count,
         "render_count": spec.render_count,
         "changed": any(f["changed"] for f in features),
+        "new_cases": sum(f["new_cases"] for f in features),
         "errors": [e for f in features for e in f["errors"]],
         "features": features,
     }
@@ -238,6 +275,11 @@ def canary(part: Path, spec: Spec, side: Side, work: Path) -> dict[str, Any]:
         not errors and result["image_stable"] and result["metrics_stable"]
     )
     return result
+
+
+def known_cases_in(spec: Spec) -> set[tuple[str, str]]:
+    """The (feature key, case name) pairs a spec defines."""
+    return {(feature.key, case.name) for feature in spec.features for case in feature.cases}
 
 
 def load_part_spec(repo_root: Path, part: Path) -> Spec:
