@@ -161,6 +161,13 @@ features:
       # reported, so this must come out identical to the bullnose above.
       - name: clamped-to-thickness
         params: {Top_Edge_Refinement_Type: Fillet, Top_Edge_Refinement_Size: 20}
+      # A disc breaks its top edge through cyl() rather than cuboid(), which
+      # refuses a rounding2 and a chamfer2 together even when one is 0.
+      - name: circular-fillet
+        params: {Base_Shape: Circular, Top_Edge_Refinement_Type: Fillet, Top_Edge_Refinement_Size: 2}
+        render: true
+      - name: circular-chamfer
+        params: {Base_Shape: Circular, Top_Edge_Refinement_Type: Chamfer, Top_Edge_Refinement_Size: 2}
       # The two refinements are different shapes on different edges at once,
       # which is the case one cuboid() call cannot express.
       - name: chamfered-top-filleted-corners
