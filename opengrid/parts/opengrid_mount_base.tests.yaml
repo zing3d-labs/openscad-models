@@ -113,8 +113,14 @@ features:
       base. A disc has no corners, so this is a rectangular-base setting only.
     # Close in on one corner: at base scale a 2mm fillet is a few pixels.
     camera:
-      eye: [-62, -62, 22]
-      center: [-26, -26, 0]
+      eye: [-76, -76, 22]
+      center: [-40, -40, 0]
+    # A 3x3 rather than the default 2x2. On a 2x2 every slot is a corner slot,
+    # so the larger refinements leave no slot at all and the base refuses to
+    # build; on a 3x3 the middle slots survive and every size here renders.
+    parameters:
+      Units_X: 3
+      Units_Y: 3
     matrix:
       Corner_Refinement_Type: [None, Chamfer, Fillet]
       Corner_Refinement_Size: [2, 5, 10]
@@ -192,11 +198,16 @@ features:
     # In under one corner from the board-facing side, which is where the band is
     # thinnest, with a full-length neighbour in the same frame for comparison.
     camera:
-      eye: [-96, -96, -70]
-      center: [-24, -24, 0]
+      eye: [-110, -110, -70]
+      center: [-38, -38, 0]
+    # A 3x3, so that a refinement costs the corner slots and leaves the rest:
+    # the matrix then shows how many each size takes, where on a 2x2 the larger
+    # sizes take every slot and the base refuses to build.
     parameters:
       Mount_Type: openConnect
       Base_Shape: Rectangular
+      Units_X: 3
+      Units_Y: 3
     matrix:
       Corner_Refinement_Type: [None, Chamfer, Fillet]
       Corner_Refinement_Size: [2, 5, 10, 20]
@@ -206,19 +217,39 @@ features:
       # no margin here to begin with, which is why a refinement costs it so fast.
       - params: {Corner_Refinement_Type: None, Corner_Refinement_Size: 2}
         render: true
-      # A one-by-one base is entirely edge rows and corners, so the single slot
-      # has the least room of any case. It survives on a shortened entry, which
-      # is the trim doing exactly the job it exists for.
-      - name: one-by-one-filleted
-        params: {Units_X: 1, Units_Y: 1, Corner_Refinement_Type: Fillet, Corner_Refinement_Size: 3}
-        render: true
       # Too deep for a shorter entry to rescue on a 2x2, where every position is
-      # a corner: the base has no mount left and must refuse to build.
+      # a corner: the base has no mount left and must refuse to build. Expected
+      # to fail, and checked for the refusal itself rather than reported as an
+      # error.
       - name: fillet-eats-every-slot
-        params: {Corner_Refinement_Type: Fillet, Corner_Refinement_Size: 20}
+        params: {Units_X: 2, Units_Y: 2, Corner_Refinement_Type: Fillet, Corner_Refinement_Size: 20}
+        expect_error: no openConnect slot can be cut
       # A chamfer takes the corner off on a straight diagonal, so it reaches a
       # slot sooner than a fillet of the same size.
       - params: {Corner_Refinement_Type: Chamfer, Corner_Refinement_Size: 10}
+        render: true
+
+  slot_edge_clearance_one_by_one:
+    label: Slot clearance on a one-by-one base
+    description: >-
+      A one-by-one base is entirely edge rows and corners, so its single slot
+      has the least room of any. A corner refinement costs it its full entry
+      before it costs the slot.
+    # Its own feature only for the camera: the one above is aimed at the corner
+    # of a 3x3, and a one-by-one base sits well outside that frame.
+    camera:
+      eye: [-82, -82, -70]
+      center: [-10, -10, 0]
+    parameters:
+      Mount_Type: openConnect
+      Base_Shape: Rectangular
+      Units_X: 1
+      Units_Y: 1
+    cases:
+      # The single slot survives on a shortened entry, which is the trim doing
+      # exactly the job it exists for.
+      - name: one-by-one-filleted
+        params: {Corner_Refinement_Type: Fillet, Corner_Refinement_Size: 3}
         render: true
 
   openconnect_slots:
