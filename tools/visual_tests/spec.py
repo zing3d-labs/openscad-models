@@ -44,6 +44,10 @@ class Case:
     name: str
     parameters: dict[str, Any]
     render: bool
+    # Set on a case that exists to prove the part REFUSES to build: the text
+    # that must appear in OpenSCAD's output when it does. Such a case passes by
+    # failing, so it is checked for its refusal rather than measured.
+    expect_error: str | None = None
 
 
 @dataclass(frozen=True)
@@ -172,7 +176,7 @@ def _build_cases(raw: dict[str, Any], base_parameters: dict[str, Any], where: st
         location = f"{where}.cases[{index}]"
         if not isinstance(entry, dict):
             raise SpecError(f"{location}: expected a mapping")
-        unknown = set(entry) - {"name", "params", "render"}
+        unknown = set(entry) - {"name", "params", "render", "expect_error"}
         if unknown:
             raise SpecError(f"{location}: unknown key(s) {', '.join(sorted(unknown))}")
         parameters = _as_parameters(entry.get("params"), f"{location}.params")
@@ -182,10 +186,16 @@ def _build_cases(raw: dict[str, Any], base_parameters: dict[str, Any], where: st
         render = entry.get("render", False)
         if not isinstance(render, bool):
             raise SpecError(f"{location}.render: expected true or false")
+        expect_error = entry.get("expect_error")
+        if expect_error is not None:
+            if not isinstance(expect_error, str) or not expect_error.strip():
+                raise SpecError(f"{location}.expect_error: expected the text the refusal must contain")
+            if render:
+                raise SpecError(f"{location}: a case expected to fail has nothing to picture, so it cannot also render")
         merged = {**base_parameters, **parameters}
         # A named case restates a matrix combination when it wants a render;
         # the explicit entry wins so `render: true` is not silently dropped.
-        ordered[name] = Case(name=name, parameters=merged, render=render)
+        ordered[name] = Case(name=name, parameters=merged, render=render, expect_error=expect_error)
 
     if not ordered:
         raise SpecError(f"{where}: define at least one case, via 'cases' or 'matrix'")

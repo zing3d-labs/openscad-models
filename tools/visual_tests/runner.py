@@ -78,6 +78,72 @@ def _render_case(
     return image_path, measurements, errors
 
 
+# How a case that is expected to fail came out on one side.
+REFUSED = "refused"
+RENDERED = "rendered"
+FAILED_OTHERWISE = "failed otherwise"
+
+
+def _check_refusal(side: Side, part: Path, feature: Feature, case: Case, work: Path) -> tuple[str, str]:
+    """Run a case that exists to prove the part refuses to build.
+
+    Returns (outcome, detail). The case only counts as refused when OpenSCAD
+    fails AND says what the spec expects it to say, so a part that breaks for
+    some unrelated reason - a missing include, a typo - is not mistaken for one
+    that refused on purpose.
+    """
+    assert case.expect_error is not None
+    source = side.root / part
+    if not source.is_file():
+        return FAILED_OTHERWISE, f"{part} does not exist in this checkout"
+    mesh_path = work / "meshes" / feature.key / case.name / f"{side.name}.stl"
+    try:
+        side.openscad.export_mesh(source, mesh_path, parameters=case.parameters)
+    except RenderError as exc:
+        if case.expect_error in str(exc):
+            return REFUSED, ""
+        return FAILED_OTHERWISE, str(exc)
+    finally:
+        mesh_path.unlink(missing_ok=True)
+    return RENDERED, ""
+
+
+def _compare_refusal(
+    part: Path,
+    feature: Feature,
+    case: Case,
+    base: Side,
+    head: Side,
+    work: Path,
+) -> dict[str, Any]:
+    """Compare a case expected to fail. It is changed when the two sides come
+    out differently, and an error only when the head stops refusing - the
+    refusal is the behaviour under test, and it is the head that ships."""
+    base_outcome, _ = _check_refusal(base, part, feature, case, work)
+    head_outcome, head_detail = _check_refusal(head, part, feature, case, work)
+    errors: list[str] = []
+    if head_outcome == RENDERED:
+        errors.append(f"head: expected a refusal containing {case.expect_error!r}, but it rendered")
+    elif head_outcome == FAILED_OTHERWISE:
+        errors.append(
+            f"head: expected a refusal containing {case.expect_error!r}, but it failed otherwise — {head_detail}"
+        )
+    return {
+        "name": case.name,
+        "parameters": case.parameters,
+        "rendered": False,
+        "changed": base_outcome != head_outcome,
+        "expect_error": case.expect_error,
+        "refusal": {"base": base_outcome, "head": head_outcome},
+        "image": None,
+        "images": {},
+        "metrics": None,
+        "base": None,
+        "head": None,
+        "errors": errors,
+    }
+
+
 def default_jobs() -> int:
     """One OpenSCAD per core. Rendering is a single-threaded CPU grind, so the
     cheapest speed-up available is to run the cases alongside each other."""
@@ -92,6 +158,8 @@ def _compare_case(
     head: Side,
     work: Path,
 ) -> dict[str, Any]:
+    if case.expect_error is not None:
+        return _compare_refusal(part, feature, case, base, head, work)
     want_image = case.render
     base_image, base_measurements, errors = _render_case(
         base, part, feature, case, work, want_image=want_image
