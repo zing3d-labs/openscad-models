@@ -111,6 +111,19 @@ def _metric_sentence(metrics: dict[str, Any] | None) -> str:
     return ", ".join(parts)
 
 
+def _measurement_sentence(measurements: dict[str, Any] | None) -> str:
+    """What a new case measures, with nothing to compare it against."""
+    if not measurements:
+        return "measurements unavailable"
+    size = [hi - lo for lo, hi in zip(measurements["bbox_min"], measurements["bbox_max"])]
+    bodies = measurements["body_count"]
+    return (
+        f"{bodies} {'body' if bodies == 1 else 'bodies'}, "
+        f"bbox {' × '.join(f'{v:,.2f}' for v in size)} mm, "
+        f"volume {_format_number(measurements['volume'])} mm³"
+    )
+
+
 def _parameter_sentence(parameters: dict[str, Any], baseline: dict[str, Any]) -> str:
     """Show only what this case varies relative to the feature's baseline."""
     varied = {k: v for k, v in parameters.items() if baseline.get(k) != v}
@@ -178,19 +191,84 @@ def _case_block(
     return lines
 
 
+def _new_case_block(
+    case: dict[str, Any],
+    feature: dict[str, Any],
+    part: str,
+    base_url: str | None,
+    detail: int,
+) -> list[str]:
+    """A case with no before: the head's render and its own numbers."""
+    title = _parameter_sentence(case["parameters"], _baseline_parameters(feature))
+    lines = [f"**{title}** — {_measurement_sentence(case.get('head'))}", ""]
+    head_image = (case.get("images") or {}).get("head")
+    if head_image and base_url and detail in (FULL, COLLAPSED):
+        lines.append(f'<img src="{_image_url(base_url, part, head_image)}" width="{THUMBNAIL_WIDTH}">')
+        lines.append("")
+    elif head_image and base_url and detail == LINKS:
+        lines.append(f"Image: [after]({_image_url(base_url, part, head_image)})")
+        lines.append("")
+    for error in case.get("errors") or []:
+        lines.append(f"> ⚠️ {error}")
+        lines.append("")
+    return lines
+
+
+def _new_section(feature: dict[str, Any], part: str, base_url: str | None, detail: int) -> list[str]:
+    """The cases a change adds to a feature - all of them, for a new feature."""
+    count = feature.get("new_cases", 0)
+    title = (
+        f"{feature['label']} — new"
+        if feature.get("new")
+        else f"{feature['label']} — {count} new case{'' if count == 1 else 's'}"
+    )
+    new_cases = [c for c in feature["cases"] if c.get("new")]
+    if detail == SUMMARY_ONLY:
+        return [f"- **{title}** — {count} case{'' if count == 1 else 's'}, nothing to compare against"]
+    if detail == COMPACT:
+        lines = [f"<details><summary>{title}</summary>", ""]
+        for case in new_cases:
+            lines.append(
+                f"- {_parameter_sentence(case['parameters'], _baseline_parameters(feature))}"
+                f" — {_measurement_sentence(case.get('head'))}"
+            )
+        return lines + ["", "</details>", ""]
+    body: list[str] = []
+    if feature.get("new") and feature["description"]:
+        body += [feature["description"], ""]
+    body += [
+        "_Not in the base branch's spec, so there is no before to compare with. "
+        "These are rendered after the change only._",
+        "",
+    ]
+    for case in new_cases:
+        body += _new_case_block(case, feature, part, base_url, detail)
+    if detail == FULL:
+        return [f"#### {title}", ""] + body
+    return [f"<details><summary>{title}</summary>", ""] + body + ["</details>", ""]
+
+
 def _render(result: dict[str, Any], base_url: str | None, detail: int, notes: list[str]) -> str:
     part = result["part"]
     changed = [f for f in result["features"] if f["changed"]]
-    unchanged = [f for f in result["features"] if not f["changed"]]
+    with_new = [f for f in result["features"] if f.get("new_cases")]
+    unchanged = [f for f in result["features"] if not f["changed"] and not f.get("new")]
+    # Only what existed before can have changed: a new feature has no before.
+    existing = len(result["features"]) - sum(1 for f in result["features"] if f.get("new"))
 
     lines = [marker(part), ""]
     lines.append(f"### Visual regression — `{_part_name(part)}`")
     lines.append("")
-    headline = (
-        f"**{len(changed)} of {len(result['features'])} features changed.**"
-        if changed
-        else "**No feature changed.**"
-    )
+    headline = f"{len(changed)} of {existing} features changed" if changed else "No feature changed"
+    new_features = [f for f in result["features"] if f.get("new")]
+    if new_features:
+        headline += f", {len(new_features)} new feature{'' if len(new_features) == 1 else 's'}"
+    added_to_existing = sum(f.get("new_cases", 0) for f in with_new if not f.get("new"))
+    if added_to_existing:
+        headline += (
+            f", {added_to_existing} new case{'' if added_to_existing == 1 else 's'} in existing features"
+        )
+    headline = f"**{headline}.**"
     lines.append(
         f"{headline} {result['case_count']} cases measured, {result['render_count']} rendered. "
         f"Merge base `{_short(result['base_ref'])}` → `{_short(result['head_ref'])}`."
@@ -202,7 +280,7 @@ def _render(result: dict[str, Any], base_url: str | None, detail: int, notes: li
         lines.append(f"> {note}")
         lines.append("")
 
-    if base_url is None and changed:
+    if base_url is None and (changed or with_new):
         lines.append(
             "> Images are not published for this run — a pull request from a fork gets a "
             "read-only token, so there is nowhere to host them. Every image is in the "
@@ -252,11 +330,15 @@ def _render(result: dict[str, Any], base_url: str | None, detail: int, notes: li
             lines.append("</details>")
             lines.append("")
 
+    for feature in with_new:
+        lines += _new_section(feature, part, base_url, detail)
+
     if unchanged:
         lines.append(f"<details><summary>Unchanged features ({len(unchanged)})</summary>")
         lines.append("")
         for feature in unchanged:
-            lines.append(f"- **{feature['label']}** — {len(feature['cases'])} cases, no change")
+            compared = len(feature["cases"]) - feature.get("new_cases", 0)
+            lines.append(f"- **{feature['label']}** — {compared} cases, no change")
         lines.append("")
         lines.append("</details>")
         lines.append("")
