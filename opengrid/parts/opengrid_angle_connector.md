@@ -29,7 +29,7 @@ It has not been printed. Anything marked *open* still needs a decision.
 | Toe-in and roll | Not in the Customizer for now. `toeAngle` and `rollAngle` stay module-only, so they can be exposed later without reworking the pose. |
 | Cable pass-through | None on the closed bodies. Ribbed's open back is the cable route. |
 | Arch past the board | Kept. At shallow tilts Arch reaches past the board's far edge; the part warns when it does. |
-| Studs come from the mount base | `openGridMountBase()` gets a stud mode with the same placement rules as slots, and this part moves onto it. The single-stud helper here is a stopgap. |
+| Studs come from the mount base | The object plate is an `openGridMountBase()` with `mountType = "openConnect Studs"`, the same base its slot and snap options use. Studs go exactly where the slotted base would cut slots, so the object's slots and these studs follow one set of placement rules. |
 | Scope vs. the arbitrary-angle beam bracket ([#5](https://github.com/zing3d-labs/openscad-models/issues/5)) | A separate part, built for strength under typing load. The overlap is noted below and not shipped here. |
 
 ### Made in the draft, to review
@@ -289,9 +289,20 @@ All checks render with Manifold, using `--render` and never a preview. Every
 check has a control that has to come out non-empty, so a pass is evidence.
 
 - **Studs fit a real slot.** `openGridMountStud(d)` differenced against
-  `openGridMountSlotCutter(d)` is empty for all four directions. Controls: a
-  mirrored head leaves 90 facets in the nub, and an unturned head leaves
-  8.5mm³ of flange in the slot's lip.
+  `openGridMountSlotCutter(d)` is empty for all four directions and both lock
+  sides. Controls: a mirrored head leaves 90 facets in the nub, and an
+  unturned head leaves 8.5mm³ of flange in the slot's lip. Before the base's
+  lock-nub fix (#31), the Right lock side under slides Down and Right left
+  0.126mm³ per slot. That case now comes out empty too.
+- **Moving onto the base's stud mode changed nothing.** The object plate was
+  first built with its own stud placement. It is now an `openGridMountBase()`
+  with `mountType = "openConnect Studs"`. The part built each way, differenced
+  both ways, is empty for both hands × all four slide directions; for the All,
+  Staggered (4×3 and 5×3), Edge Rows and Edge Columns placements; for the
+  lower-side example in both hands; for tilts of 0, 20, 70 and 90; for slots,
+  snaps and the on-side layout. Controls: Corners against All leaves
+  2938mm³, and slide Left against Right 926mm³ each way. The object-face
+  mate checks below therefore carry over unchanged.
 - **Object face mates.** Intersect the part with a stand-in keyboard plate: an
   `openGridMountBase()` with slots, placed through the same pose. The result is
   empty for both hands, all four slide directions, all five bodies, and tilts of
@@ -318,25 +329,11 @@ check has a control that has to come out non-empty, so a pass is evidence.
   placement built for it, and the defaults trigger none.
 - **One body.** All 91 cases in `opengrid_angle_connector.tests.yaml` measure
   one body. The exception is a closed Arch, which reports its sealed hollow as a
-  second shell.
-- **The base is unchanged.** `opengrid_mount_base`, `opengrid_block` and
-  `opengrid_cupholder` measure identical volumes before and after the stud
-  helper was added.
-
-## Findings
-
-- **The mount base's "Right" lock nub doesn't fit a true head under slides
-  "Down" and "Right".** Differencing a correctly turned head against
-  `openGridMountSlotCutter(dir, slotLockSide="Right")` leaves 0.126mm³ per slot
-  for those two directions. The other six combinations of direction and lock
-  side are empty. It is a squeeze on the detent, not a blocked slot, and it
-  comes from the library reaching Down and Right by mirroring its Up slot. This
-  part sidesteps it for its own object plate by always using "Left". The board
-  plate passes the user's `Board_Slot_Lock_Side` through, so it inherits the
-  issue whenever the side the base is asked for ends up "Right" under a Down or
-  Right slide. `Handedness = Right` can produce that too, for example a board
-  slide of Right with lock side Left. The defaults (slide Left, lock Left, either
-  hand) are clear. Worth fixing in the base, or at least warning there.
+  second shell. A flat spacer (tilt 0) has its plates sitting straight on each
+  other. Where a Tube or Truss hollow left that contact with nothing
+  overlapping it, the union kept a zero-volume sheet between the plates and the
+  part measured two bodies. A 0.2mm slab across their shared footprint, inside
+  both plates, now joins them, and the volume is unchanged.
 
 ---
 
@@ -346,15 +343,9 @@ None.
 
 ## Follow-up work proposed
 
-- **A stud mode in `openGridMountBase()`** (`mountType = "openConnect Studs"`),
-  with the same placement and fit rules as slots, circular bases included. The
-  draft adds only the single-stud helper `openGridMountStud()` there, verified as
-  above. Choosing stud positions is done here for rectangular grids, and that
-  moves into the base. This part then calls the base for its studs.
 - **An explicit stud-position list** for the object face, overriding the grid.
 - **A test print** of the default part, plus a slot coupon printed on its side,
   to settle the open printing question.
-- **Fix or warn** about the base's Right-side nub (see *Findings*).
 - **Toe and roll in the Customizer**, which also means Tube, Truss and Arch must
   follow a compound pose.
 - **The shared angle library**, when #5 is picked up.

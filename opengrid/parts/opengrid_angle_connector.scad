@@ -376,26 +376,6 @@ function angleConnectorXFlipDirection(direction) =
 function angleConnectorYFlipLockSide(direction, side) =
   (direction == "Left" || direction == "Right") ? (side == "Left" ? "Right" : "Left") : side;
 
-// Grid position centres of a units grid centred on the origin, filtered by
-// the mount base's placement names. i counts to the right, j DOWNWARD from
-// the +Y row, as the mount base counts them.
-function angleConnectorGridPositions(unitsX, unitsY, placement) =
-  let (t = openGridMountTileSize())
-  [
-    for (i = [0:unitsX - 1], j = [0:unitsY - 1])
-      let (
-        edgeRow = j == 0 || j == unitsY - 1,
-        edgeCol = i == 0 || i == unitsX - 1,
-        keep = placement == "All" ? true
-          : placement == "Staggered" ? (i + j) % 2 == 0
-          : placement == "Edge Rows" ? edgeRow
-          : placement == "Edge Columns" ? edgeCol
-          : placement == "Corners" ? edgeRow && edgeCol
-          : assert(false, str("Unknown mount position: ", placement))
-      )
-      if (keep) [(i - (unitsX - 1) / 2) * t, ((unitsY - 1) / 2 - j) * t]
-  ];
-
 // ---------------------------------------------------------------------------
 
 module opengridAngleConnector(
@@ -487,17 +467,16 @@ module opengridAngleConnector(
 
   // Slide names as each plate's own builder has to be asked for them.
   // The right hand re-reads every name in its reflected frame; the object
-  // plate's slots and snaps are drawn by openGridMountBase() turned over by
-  // xrot(180), which reflects Y once more in the base's own frame.
+  // plate's studs, slots and snaps are drawn by openGridMountBase() turned
+  // over by xrot(180), which reflects Y once more in the base's own frame.
   board_dir = rightHand ? angleConnectorYFlipDirection(boardSlideDirection) : boardSlideDirection;
   board_lock = rightHand ? angleConnectorYFlipLockSide(boardSlideDirection, boardSlotLockSide) : boardSlotLockSide;
   object_dir_handed = rightHand ? angleConnectorYFlipDirection(objectSlideDirection) : objectSlideDirection;
   object_dir = lower_side ? angleConnectorXFlipDirection(object_dir_handed) : object_dir_handed;
   object_base_dir = angleConnectorYFlipDirection(object_dir);
-  // Which side the object plate's nubs sit on is this file's choice, not the
-  // user's, so it takes the side that fits a true head in every direction:
-  // the base's "Right" nub, under a slide of Down or Right, leaves 0.126mm^3
-  // per slot standing against openconnect_head() (see the .md, Findings).
+  // Which side the object plate's slot nubs sit on is not exposed; the base
+  // fits a true head with either side in every direction, so it is fixed.
+  // Studs always carry both lock notches.
   object_base_lock = "Left";
 
   // Which end goes down for an on-side print: the one the studs' flat
@@ -802,32 +781,46 @@ module opengridAngleConnector(
   // Drawn in the object frame: face at Z = 0, plate behind it, mount in
   // front of it.
   module objectPlate() {
-    if (objectMountType == "Studs") {
-      down(objectThickness) cuboid([object_w, object_d, objectThickness], anchor=BOTTOM);
-      for (p = angleConnectorGridPositions(objectUnitsX, objectUnitsY, objectMountPosition))
-        translate([p.x, p.y, 0]) openGridMountStud(object_dir);
-    } else {
-      // The mount base is built face DOWN with material above; turned over
-      // here (a rotation, not a mirror) so its material is behind the face.
-      xrot(180) openGridMountBase(
-        xUnits=objectUnitsX,
-        yUnits=objectUnitsY,
-        thickness=objectThickness,
-        mountType=objectMountType == "Slots" ? "openConnect" : "Snaps",
-        liteSnap=liteSnap,
-        snapPlacement=snapPlacement,
-        slotSlideDirection=object_base_dir,
-        slotPosition=objectMountPosition,
-        slotLockDistribution="All",
-        slotLockSide=object_base_lock,
-        anchor="board"
-      );
+    // The mount base is built face DOWN with material above; turned over
+    // here (a rotation, not a mirror) so its material is behind the face and
+    // its studs, slots or snaps are in front of it.
+    xrot(180) openGridMountBase(
+      xUnits=objectUnitsX,
+      yUnits=objectUnitsY,
+      thickness=objectThickness,
+      mountType=objectMountType == "Studs" ? "openConnect Studs"
+        : objectMountType == "Slots" ? "openConnect" : "Snaps",
+      liteSnap=liteSnap,
+      snapPlacement=snapPlacement,
+      slotSlideDirection=object_base_dir,
+      slotPosition=objectMountPosition,
+      slotLockDistribution="All",
+      slotLockSide=object_base_lock,
+      anchor="board"
+    );
+  }
+
+  // A flat spacer whose plates sit straight on each other meets them across
+  // a plane. A profile body's hollow leaves stretches of that plane with
+  // nothing overlapping it, and the union keeps those as a zero-volume sheet
+  // between the plates. A slab `eps` into each, over their shared footprint,
+  // joins them through real overlap. It lies inside both plates, clear of
+  // their slots (each keeps at least MIN_BASE_WALL behind them), so it adds
+  // nothing to the part.
+  plates_touch = singleAxis && !lower_side && tiltAngle == 0
+    && abs(lift_used - objectThickness - boardThickness) < 1e-6;
+
+  module plateJoin() {
+    intersection() {
+      up(boardThickness - eps) cuboid([board_w, board_d, 2 * eps], anchor=BOTTOM);
+      multmatrix(pose) down(objectThickness + eps) cuboid([object_w, object_d, 2 * eps], anchor=BOTTOM);
     }
   }
 
   module assembled() {
     union() {
       if (rightHand) multmatrix(ANGLE_CONNECTOR_MIRROR) bodyLeft(); else bodyLeft();
+      if (plates_touch) plateJoin();
       boardPlate();
       multmatrix(pose) objectPlate();
       // Only the profile bodies leave a plate's end hanging: Solid and
