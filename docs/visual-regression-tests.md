@@ -106,6 +106,35 @@ asking for a render inside a swept space does not duplicate the case.
 | `cases[].params` | feature | Parameters for one case, over the feature's. |
 | `cases[].name` | feature | Optional. Derived from the parameters otherwise. |
 | `cases[].render` | feature | `true` to picture this case. Default `false`. |
+| `cases[].expect_error` | feature | Text the case must fail with. See below. Cannot be combined with `render`. |
+
+### Cases that must refuse to build
+
+Some parameter combinations are meant to fail: a part that asserts it cannot be
+built the way it was asked, rather than producing something that does not
+work. Proving that refusal still happens is worth a test, but an ordinary case
+can only render or error, and an error is reported as a problem on every pull
+request.
+
+Give such a case `expect_error` instead, with text from the message the part
+fails with:
+
+```yaml
+      - name: fillet-eats-every-slot
+        params: {Units_X: 2, Units_Y: 2, Corner_Refinement_Type: Fillet, Corner_Refinement_Size: 20}
+        expect_error: no openConnect slot can be cut
+```
+
+The case is then checked for the refusal instead of being measured. It counts
+as refused only when OpenSCAD fails AND its output contains that text, so a part
+that breaks for some unrelated reason is not mistaken for one refusing on
+purpose. It is reported as changed when the two sides come out differently, and
+as an error when the head stops refusing — it renders, or fails with some other
+message.
+
+Keep the swept `matrix` to combinations that build. A matrix cannot mark one
+combination as expected to fail, so pick the feature's parameters so every
+combination renders, and state each deliberate refusal as a named case.
 
 ### Choosing a camera
 
