@@ -1,20 +1,27 @@
 /*
   opengrid_mount_base.scad
 
-  The base an openGrid accessory mounts by: a slab carrying one of the two
+  The base an openGrid accessory mounts by: a slab carrying one of the
   mounts openGrid offers, in whichever of two shapes suits the thing standing
   on it.
 
-    openConnect - the slab is plain, and openConnect slots are cut into the
-                  face that meets the board. Screw openConnect connectors into
-                  the board first, then slide the part onto them. The default.
-    Snaps       - openGrid snaps stand proud of that face and click into the
-                  tiles directly.
+    openConnect       - the slab is plain, and openConnect slots are cut into
+                        the face that meets the board. Screw openConnect
+                        connectors into the board first, then slide the part
+                        onto them. The default.
+    Snaps             - openGrid snaps stand proud of that face and click into
+                        the tiles directly.
+    openConnect Studs - the other way round from openConnect: the heads of the
+                        connectors are printed standing proud of that face, and
+                        a part with openConnect slots of its own slides onto
+                        them. For a face that something else hangs off rather
+                        than one that meets the board - see "openConnect
+                        studs" below.
 
-  The two are alternatives rather than additions. Both claim the same tiles
-  from the same face, and the snaps stand off exactly the face the openConnect
-  mount needs flat against the board, so a base carrying both could not sit
-  down on the board at all.
+  The three are alternatives rather than additions. All of them claim the same
+  tiles from the same face, and the snaps and studs stand off exactly the face
+  the others need flat against what they meet, so a base carrying two could
+  not sit down on anything at all.
 
   The slab is printable on its own - a bare mounting plate is a useful thing to
   have - but it exists mainly to be built on. opengrid_block.scad is the slab
@@ -26,14 +33,17 @@
 
   The base is built the way it is used: the board-facing side is DOWN, and
   whatever stands on the base goes above it. The anchors say where things are,
-  and they mean the same thing under either mount and either shape:
+  and they mean the same thing under every mount and either shape:
 
       BOTTOM          the outermost board-facing point. Under openConnect that
                       is the mount face itself; under snaps it is the snap
-                      tips, which reach to the far side of the tile.
+                      tips, which reach to the far side of the tile; under
+                      studs it is the studs' flanges.
       "board"         the plane the board's outer surface lies in - the slab's
                       board-facing face. The same as BOTTOM under openConnect,
-                      one snap thickness above it under snaps.
+                      one snap thickness above it under snaps and one stud
+                      height (2.6mm) above it under studs. With studs the
+                      "board" is whatever slotted face slides onto them.
       TOP             the far face of the slab, which is what a part stands on.
       "mount_<i>_<j>" one grid position, on the board plane, facing DOWN.
 
@@ -49,9 +59,10 @@
 
   This is also why thickness means what it means. It is the slab alone - the
   material that stands out from the board - and never includes the snaps, which
-  go into the board rather than out from it. A snap base is therefore taller
-  overall than an openConnect base of the same thickness, and still stands out
-  from it by the same distance.
+  go into the board rather than out from it, or the studs, which go into the
+  slots of the part they meet. A snap or stud base is therefore taller overall
+  than an openConnect base of the same thickness, and still stands out from
+  what it meets by the same distance.
 
   ---------------------------------------------------------------------------
   Grid positions
@@ -202,6 +213,42 @@
   opengrid_block.scad, which exists for exactly that gap.
 
   ---------------------------------------------------------------------------
+  openConnect studs
+
+  A stud is the head of an openConnect connector - the same head
+  openconnect_screw() presents from the board - printed onto the base instead
+  of screwed into a tile. A base with studs is the one a SLOTTED part slides
+  onto: the object face of an angled bracket, say, whose object carries the
+  slots. On a board, use slots and real connectors; a studded face never meets
+  a board, which has no slots.
+
+  Studs are placed by the slot rules exactly, not by rules of their own. A base
+  with studs and a base with slots, given the same shape, size, corner
+  refinement, slot position and slide direction, are a mating pair: turn the
+  slotted one over about the slide axis, face to face, and it slides straight
+  onto the studs. A stud could stand where a refined corner leaves no room for
+  a slot, since it cuts nothing, but the part that meets it is slotted, and a
+  stud with no slot to go into is not merely unused - it props the two faces
+  apart. So a stud goes only where a slot can be cut.
+
+  slotSlideDirection keeps its name and changes its subject: with studs it is
+  the way the SLOTTED part slides to come off them, in this base's axes - the
+  name its own slots were cut with. The studded part itself comes off the
+  opposite way. Turning the slotted partner over about the slide axis leaves
+  that axis where it was, which is why the two agree on one word.
+
+  A stud is always the full head, both lock notches included, whatever the
+  slot options say: which slots carry a lock nub is the slotted part's choice,
+  and a stud without the notch is one the nub squeezes against rather than
+  clicks into. It is turned into place, never mirrored, for the same chirality
+  reason the slot cutter is - see openGridMountStud().
+
+  Printed, a studded base wants its studs facing UP, off the bed, since they
+  stand proud of the face that would otherwise lie on it. That way up a stud
+  needs no support: it widens from neck to flange at 45 degrees, and sliced
+  layer by layer nothing in it reaches further out than that.
+
+  ---------------------------------------------------------------------------
   Licensing
 
   The base geometry in this file is original work by zing3d-labs and is
@@ -238,10 +285,12 @@ use <../../external/QuackWorks/openGrid/opengrid-snap.scad>
 
 /* [Base] */
 
-// How the base attaches to the board. openConnect slides onto connectors
-// screwed into the tiles; snaps click into the tiles directly. The two are
-// alternatives - the options below apply only to the mount selected here.
-Mount_Type = "openConnect"; // [openConnect, Snaps]
+// How the base attaches. openConnect slots slide onto connectors screwed into
+// the tiles; snaps click into the tiles directly. openConnect studs are the
+// other way round: printed connector heads, for a part with slots of its own to
+// slide onto. The three are alternatives - the options below apply only to the
+// mount selected here.
+Mount_Type = "openConnect"; // [openConnect:openConnect Slots, openConnect Studs, Snaps]
 
 // Shape of the base. Rectangular is the grid-sized slab - a whole number of
 // 28mm units on each side. Circular is a disc of a given diameter, which cuts
@@ -308,18 +357,23 @@ Snap_Placement = "Corners"; // [All, Edges, Corners]
 // Direction the part slides to come off the connectors, in the model's own
 // axes: "Right" is +X, "Left" is -X, "Up" is +Y, "Down" is -Y. The part seats
 // by sliding the opposite way, so point this at whichever side of the board
-// has room to work.
+// has room to work. With studs, this is the way the SLOTTED part slides to
+// come off them - the same name its own slots were cut with.
 Slot_Slide_Direction = "Up"; // [Up, Down, Left, Right]
 
-// Which grid positions get a slot. A slot costs nothing to print, so cutting
-// all of them keeps every board position usable; the connectors you actually
-// screw into the board are still up to you.
+// Which grid positions get a slot - or a stud, which goes wherever the same
+// base would cut a slot. A slot costs nothing to print, so cutting all of them
+// keeps every board position usable; the connectors you actually screw into
+// the board are still up to you. A stud is not free in the same way: every
+// one needs a slot to go into, so ask for no more than the slotted part has.
 Slot_Position = "All"; // [All, Staggered, Edge Rows, Edge Columns, Corners]
 
 // Which slots get the locking nub - the detent that stops the part sliding
 // back off. All, because you pick which handful of tiles to put connectors in,
 // and the slots you happen to pick should be the locking ones. Thin this out
-// only if the fit comes out too tight to seat by hand.
+// only if the fit comes out too tight to seat by hand. Studs ignore this and
+// the two options below: a stud always carries both lock notches, like the
+// head of a real connector, and the nubs are the slotted part's to choose.
 Slot_Lock_Distribution = "All"; // [All, Staggered, Corners, Top Corners, Bottom Corners, None]
 
 // Side of the slot the locking nubs sit on. The slot turns with
@@ -546,14 +600,8 @@ function openGridMountSlotCutterOutline(slotSlideDirection = "Up", trim = 0) =
 // difference empty, a mirrored one leaves 74-96 facets of the head standing in
 // the nub. So the cutter is TURNED, with rot(), and never mirrored.
 //
-// That empty difference is exact at a slide direction of "Up". The other three
-// leave the same 74-96 facets in the nub, and that is the library's own doing
-// rather than the turn's: openconnect_slot_grid() used entirely on its own
-// terms, with no turn of ours anywhere, leaves it for "Down", "Left" and
-// "Right" too, because the library reaches those three by mirroring its "Up"
-// slot. It squeezes rather than blocks - the nub is a detent, not the retainer
-// - and the retaining lip this is all for comes out identical in all four. Do
-// not read it as something the turn introduced.
+// The library mirrors on its own account too, and the turn cannot undo that:
+// openGridMountSlotGrid() below covers where and how it is put right.
 //
 // A turn is about an axis, and the axis is the one the slot slides along,
 // because that is the axis the cutter is symmetric across:
@@ -595,6 +643,89 @@ function openGridMountTurnedLockDistribution(slotSlideDirection = "Up", slotLock
   : slotLockDistribution;
 
 // ---------------------------------------------------------------------------
+// The library's own mirror.
+//
+// openconnect_slot_grid() reaches "Down" and "Right" by spinning its slot AND
+// mirroring it, and slot_entryramp_flip is a mirror as well. Where the two
+// leave the slot mirrored an odd number of times, each lock nub is the one
+// made for the other side of the head: the left one is sheared over by
+// nub_taperin and the right one is straight, and mirroring a slot moves the
+// shapes across with it. A sheared nub against the head's straight detent
+// stands 0.126mm^3 into the head (z 0.9-1.78), which is a tighter click than
+// intended; a straight nub against the sheared detent fits, but is 0.663mm^3
+// where the true nub is 0.854mm^3, so that click is looser than intended.
+//
+// Done uniformly, every one of those slots is put right the same way: the
+// library's body, entry ramp and all, keeps its mirror, and only its nubs are
+// swapped for the true ones. Those come from the same grid drawn with the
+// opposite ramp flip, which is not mirrored, asked for on the other side
+// because the ramp flip carries the nub across - so they land exactly where
+// the library put its own. Everywhere but the entry ramp the two grids are
+// the same slot, so the mirrored body is cut back to that grid, nubs and all,
+// and the ramp - the one part only the mirrored grid has - is added back.
+//
+// Built that way round on purpose. The obvious construction, subtracting the
+// unmirrored nubs from the mirrored body, leaves zero-volume shells where a
+// nub meets the entry ramp (the two touch along a face), and those count as
+// extra bodies in the exported mesh. This one leaves a single body.
+//
+// Measured on --render output, openconnect_head() differenced
+// against a slot cutter is then empty for all four directions, both lock sides
+// and both ramp flips, where before it left the 0.126mm^3 in four of the
+// sixteen. A mirrored head still leaves it in eight: the half where the
+// mirror sets a sheared nub against a straight detent.
+function openGridMountSlotMirrored(slotSlideDirection = "Up", slotEntryRampFlip = false) =
+  (slotSlideDirection == "Down" || slotSlideDirection == "Right") != slotEntryRampFlip;
+
+// openconnect_slot_grid() with the nubs of a mirrored slot put right, as above.
+// Takes the library's own arguments in its own frame - lockSide is the side
+// the library is asked for, already turned - and draws the same grid in the
+// same place. A grid with no nubs, or whose slots are not mirrored, is the
+// library's call unchanged.
+module openGridMountSlotGrid(
+  xUnits = 1,
+  yUnits = 1,
+  slotSlideDirection = "Up",
+  slotPosition = "All",
+  lockDistribution = "None",
+  lockSide = "Left",
+  slotEntryRampFlip = false,
+  limitRegion = [],
+  exceptSlotPos = []
+) {
+  module grid(distribution, side, flip) {
+    openconnect_slot_grid(
+      slot_type="slot",
+      horizontal_grids=xUnits,
+      vertical_grids=yUnits,
+      slot_slide_direction=slotSlideDirection,
+      slot_position=slotPosition,
+      slot_lock_distribution=distribution,
+      slot_lock_side=side,
+      slot_entryramp_flip=flip,
+      limit_region=limitRegion,
+      except_slot_pos=exceptSlotPos,
+      excess_thickness=EPS,
+      anchor=TOP
+    );
+  }
+
+  if (lockDistribution == "None" || !openGridMountSlotMirrored(slotSlideDirection, slotEntryRampFlip))
+    grid(lockDistribution, lockSide, slotEntryRampFlip);
+  else
+    union() {
+      intersection() {
+        grid("None", lockSide, slotEntryRampFlip);
+        grid(lockDistribution, lockSide == "Left" ? "Right" : "Left", !slotEntryRampFlip);
+      }
+      difference() {
+        grid("None", lockSide, slotEntryRampFlip);
+        grid("None", lockSide, !slotEntryRampFlip);
+      }
+    }
+}
+
+// ---------------------------------------------------------------------------
 
 // One openConnect slot cutter, turned to cut into a board-facing face lying in
 // the local Z = 0 plane with the material above it. Subtract it from a base in
@@ -619,17 +750,11 @@ module openGridMountSlotCutter(
 ) {
   rot(180, v=openGridMountSlotFlipAxis(slotSlideDirection))
     difference() {
-      openconnect_slot_grid(
-        slot_type="slot",
-        horizontal_grids=1,
-        vertical_grids=1,
-        slot_slide_direction=slotSlideDirection,
-        slot_position="All",
-        slot_lock_distribution=locked ? "All" : "None",
-        slot_lock_side=openGridMountTurnedLockSide(slotLockSide),
-        slot_entryramp_flip=slotEntryRampFlip,
-        excess_thickness=EPS,
-        anchor=TOP
+      openGridMountSlotGrid(
+        slotSlideDirection=slotSlideDirection,
+        lockDistribution=locked ? "All" : "None",
+        lockSide=openGridMountTurnedLockSide(slotLockSide),
+        slotEntryRampFlip=slotEntryRampFlip
       );
       if (trimEntry) openGridMountEntryTrimStrip(slotSlideDirection);
     }
@@ -668,23 +793,22 @@ module openGridMountEntryTrimStrip(slotSlideDirection = "Up", cp = [0, 0]) {
 //
 // It is the screw's head and it gets there the screw's way - turned, with
 // xrot(180) zrot(180), never mirrored - for the same chirality reason the
-// cutter is turned. Measured: openconnect_head() differenced against
-// openGridMountSlotCutter("Up") at the same origin is EMPTY, a zflip()ped head
-// in its place leaves 90 facets of nub standing, and an unturned one leaves
-// 8.5mm^3 of flange in the slot's lip. So a stud placed where a slot would be
-// cut is exactly the head that slot is made for.
+// cutter is turned. Measured at $fn = 40: this stud differenced against
+// openGridMountSlotCutter() of the same direction at the same origin is EMPTY,
+// while a zflip()ped stud in its place, or the library's head left unturned,
+// leaves 30.9mm^3 standing in the slot's lip. So a stud placed where a slot
+// would be cut is exactly the head that slot is made for.
 //
 // slotSlideDirection names the way the part CARRYING THE SLOTS slides to come
 // off this stud, in this face's own axes - the same name that part's slots
 // were cut with, so a slotted part and a studded one agree on one word. The
 // stud is turned about Z to face it; turning, not the library's mirrored
-// Down/Left/Right, so every direction is the true head. Each of the four,
-// differenced against openGridMountSlotCutter() of the same name, comes out
-// empty.
+// Down/Left/Right, so every direction is the true head. Each of the four
+// comes out empty against its own cutter.
 //
-// This is one stud at the origin. Choosing which grid positions carry one is
-// the caller's for now; see opengrid_angle_connector.md for the base mode that
-// would do it here.
+// This is one stud at the origin. openGridMountBase() below places a grid of
+// them with mountType "openConnect Studs"; this is published for faces it
+// cannot draw.
 function openGridMountStudHeight() = struct_val(ochead_cfg(), "total_height");
 
 module openGridMountStud(slotSlideDirection = "Up", lockNotches = "Both") {
@@ -724,15 +848,33 @@ module openGridMountBase(
   // file's own Smoothing for the standalone render.
 
   circularBase = baseShape == "Circular";
-  openConnectMount = mountType == "openConnect";
+
+  // openConnect comes either way round: slots cut into the face, or studs - the
+  // heads those slots take - standing proud of it. Both are placed by the same
+  // rules, so openConnectMount is the test for anything about WHERE a mount
+  // goes, and slotMount and studMount for what is drawn there.
+  slotMount = mountType == "openConnect";
+  studMount = mountType == "openConnect Studs";
+  openConnectMount = slotMount || studMount;
+
+  assert(openConnectMount || mountType == "Snaps",
+    str("openGridMountBase: mountType must be \"openConnect\", \"openConnect Studs\" ",
+      "or \"Snaps\" - it is \"", mountType, "\"."));
+
+  // The noun the reports use for one mount of the type in force.
+  mount_noun = slotMount ? "openConnect slot" : studMount ? "openConnect stud" : "openGrid snap";
 
   x_size = circularBase ? diameter : xUnits * OG_TILE_SIZE;
   y_size = circularBase ? diameter : yUnits * OG_TILE_SIZE;
 
-  // Snaps reach into the board rather than out from it, so they add to the
-  // model's height without adding to the material that stands out from it.
-  snap_thickness = openConnectMount ? 0 : openGridMountSnapThickness(liteSnap);
-  total_thickness = thickness + snap_thickness;
+  // Snaps reach into the board rather than out from it, and studs into the
+  // part that slides onto them, so both add to the model's height without
+  // adding to the material that stands out from it. A slot is cut into the
+  // slab and adds nothing.
+  mount_standoff = slotMount ? 0
+    : studMount ? openGridMountStudHeight()
+    : openGridMountSnapThickness(liteSnap);
+  total_thickness = thickness + mount_standoff;
 
   slot_depth = openGridMountSlotDepth();
 
@@ -1022,7 +1164,23 @@ module openGridMountBase(
 
   // Held back behind the ternary rather than computed and thrown away: the
   // sweep is thousands of offsets, and a rectangular base has no use for it.
-  mount_offset = !circularBase || mountAlignment == "Centered" ? [0, 0] : maximalOffset();
+  slot_offset = !circularBase || mountAlignment == "Centered" ? [0, 0] : maximalOffset();
+
+  // A studded disc is the mirror image of the slotted one it mates with. That
+  // partner is turned over about the slide axis to face it, which carries its
+  // mounts across that axis, so the studs are placed at the offset mirrored the
+  // same way. The disc and every mount footprint are symmetric across the slide
+  // axis, so the mirrored offset supports exactly the mirrored mounts and
+  // nothing else about the search changes. Most discs come out at an offset
+  // of nought or half a tile across the slide, which the mirror maps onto
+  // itself; a 138mm disc comes out at [9, 19]mm, and unmirrored its studs land
+  // in the slotted disc's solid face. A rectangular grid needs none of this:
+  // see rectangularMountStuds().
+  mount_offset = studMount
+    ? (openGridMountSlotFlipAxis(slotSlideDirection) == BACK
+        ? [-slot_offset.x, slot_offset.y]
+        : [slot_offset.x, -slot_offset.y])
+    : slot_offset;
   mount_indices = circularBase ? mountIndicesAt(mount_offset) : [];
 
   function hasMount(i, j) = in_list([i, j], mount_indices);
@@ -1056,8 +1214,10 @@ module openGridMountBase(
     : [];
 
   // The ones among them that only fit with the entry trimmed, for the echo and
-  // for circularMountSlots(). Empty for snaps, which have no entry to trim.
-  circular_trimmed = circularBase && openConnectMount
+  // for circularMountSlots(). Empty for snaps, which have no entry to trim, and
+  // for studs, which have none of their own: a stud goes wherever a slot can be
+  // cut, trimmed or not, and the head drops into either entry.
+  circular_trimmed = circularBase && slotMount
     ? [for (ij = circular_mounts) let (p = mountPosition(ij))
         if (mountNeedsTrim(p.x, p.y)) ij]
     : [];
@@ -1067,7 +1227,7 @@ module openGridMountBase(
 
   if (circularBase) {
     assert(len(mount_indices) > 0,
-      str("openGridMountBase: no ", openConnectMount ? "openConnect slot" : "openGrid snap",
+      str("openGridMountBase: no ", mount_noun,
         " fits inside a ", diameter, "mm circular base, so it would have no mount ",
         "at all. Enlarge the disc, or set the base shape to Rectangular."));
 
@@ -1096,11 +1256,11 @@ module openGridMountBase(
   }
 
   // Everything the openConnect mount needs of the base. These live in the branch
-  // rather than carrying a !openConnectMount guard so that a failure reports the
+  // rather than carrying a !slotMount guard so that a failure reports the
   // condition that actually matters, instead of an implication the reader has to
-  // unpick. A statement-position assert only runs when it is reached, so the snap
-  // mount never sees them.
-  if (openConnectMount) {
+  // unpick. A statement-position assert only runs when it is reached, so the
+  // other mounts never see them.
+  if (slotMount) {
     assert(thickness >= openGridMountMinThickness(),
       str("openGridMountBase: thickness must be at least ", openGridMountMinThickness(),
         "mm for the openConnect mount - ", slot_depth, "mm of openConnect slot plus ",
@@ -1123,13 +1283,35 @@ module openGridMountBase(
               MIN_SLOT_EDGE_WALL, "mm; those seat with less room to line the ",
               "connector up, and the rest are untouched.")
     ));
+  }
 
-    // Only the rectangular base can drop a slot it asked for: the circular base
+  // Studs need nothing of the slab's thickness - they stand off it rather than
+  // cutting into it - so all there is to say is where they went and what they
+  // mate with.
+  if (studMount)
+    echo(str(
+      "opengrid_mount_base: openConnect studs, ",
+      let (n = circularBase ? len(circular_mounts) : len(fitted_slots))
+        str(n, n == 1 ? " stud" : " studs"), " on a ",
+      circularBase
+        ? str(diameter, "mm circular base. ")
+        : str(xUnits, "x", yUnits, " grid over a ", x_size, "x", y_size, "mm base. "),
+      "Each stands ", mount_standoff, "mm proud of the board-facing face, and they ",
+      "sit exactly where the same base with slots cuts them, so that base turned ",
+      "over about the slide axis slides onto these."
+    ));
+
+  // Studs are placed by the slot rules, so they are dropped by them too - see
+  // rectangularMountStuds() for why a stud goes nowhere a slot cannot.
+  if (openConnectMount) {
+    // Only the rectangular base can drop a mount it asked for: the circular base
     // never asks for one that does not fit, and reports what it supports above.
     if (!circularBase && len(fitted_slots) < len(requested_slots))
       echo(str(
         "opengrid_mount_base: ", len(requested_slots) - len(fitted_slots), " of ",
-        len(requested_slots), " slots cannot be cut with ", MIN_SLOT_EDGE_WALL,
+        len(requested_slots),
+        slotMount ? " slots cannot be cut" : " studs stand where no slot can be cut",
+        " with ", MIN_SLOT_EDGE_WALL,
         "mm of material left between the cut and the outside of the base, even ",
         "with ", SLOT_ENTRY_TRIM, "mm off the entry, and were dropped. Reduce the ",
         "corner refinement size, turn it off, or pick a slot position that keeps ",
@@ -1143,15 +1325,19 @@ module openGridMountBase(
         str("openGridMountBase: no openConnect slot can be cut with ", MIN_SLOT_EDGE_WALL,
           "mm of material left between the cut and the outside of the base, even ",
           "with ", SLOT_ENTRY_TRIM, "mm off the entry, so the base would have no ",
-          "mount at all and could not attach to a board.",
+          slotMount ? "mount at all and could not attach to a board."
+            : "stud a slotted part could slide onto.",
           let (all = largestRefinementLeaving(len(requested_slots)),
                some = largestRefinementLeaving(1))
             let (n = len(requested_slots),
-                 every = n == 1 ? "its only slot" : str("all ", n, " slots"),
-                 fix = str(" Reduce it, turn it off, enlarge the base, or set the mount ",
-                   "to Snaps, which stand off the face instead of cutting into it."))
+                 noun = slotMount ? "slot" : "stud",
+                 every = n == 1 ? str("its only ", noun) : str("all ", n, " ", noun, "s"),
+                 fix = slotMount
+                   ? str(" Reduce it, turn it off, enlarge the base, or set the mount ",
+                       "to Snaps, which stand off the face instead of cutting into it.")
+                   : " Reduce it, turn it off, or enlarge the base.")
               some < 0
-                ? str(" No ", cornerRefinementType, " of any size leaves a slot on a ",
+                ? str(" No ", cornerRefinementType, " of any size leaves a ", noun, " on a ",
                     xUnits, "x", yUnits, " base.", fix)
                 : str(" On this ", xUnits, "x", yUnits, " base a ", cornerRefinementType,
                     " of up to ", all, "mm keeps ", every,
@@ -1188,20 +1374,17 @@ module openGridMountBase(
     down(thickness / 2)
       rot(180, v=openGridMountSlotFlipAxis(slotSlideDirection))
         difference() {
-          openconnect_slot_grid(
-            slot_type="slot",
-            horizontal_grids=xUnits,
-            vertical_grids=yUnits,
-            slot_slide_direction=slotSlideDirection,
-            slot_position=slotPosition,
-            slot_lock_distribution=openGridMountTurnedLockDistribution(
+          openGridMountSlotGrid(
+            xUnits=xUnits,
+            yUnits=yUnits,
+            slotSlideDirection=slotSlideDirection,
+            slotPosition=slotPosition,
+            lockDistribution=openGridMountTurnedLockDistribution(
               slotSlideDirection, slotLockDistribution),
-            slot_lock_side=openGridMountTurnedLockSide(slotLockSide),
-            slot_entryramp_flip=slotEntryRampFlip,
-            limit_region=[base_outline],
-            except_slot_pos=dropped_slots,
-            excess_thickness=EPS,
-            anchor=TOP
+            lockSide=openGridMountTurnedLockSide(slotLockSide),
+            slotEntryRampFlip=slotEntryRampFlip,
+            limitRegion=[base_outline],
+            exceptSlotPos=dropped_slots
           );
           for (cp = trimmed_slots)
             openGridMountEntryTrimStrip(slotSlideDirection, cp);
@@ -1233,6 +1416,54 @@ module openGridMountBase(
             );
   }
 
+  // openConnect studs, standing off the board-facing face - the positive of
+  // rectangularMountSlots() above, placed so that a base with slots and the
+  // same settings, turned over about the slide axis, slides straight onto them.
+  //
+  // That pairing is what decides where studs go, and it is why they follow the
+  // slot fit rules exactly rather than rules of their own. A stud needs far
+  // less of the slab than a slot does - it cuts nothing - so a stud could stand
+  // where a refined corner leaves no room for a slot. But the part that slides
+  // onto it is slotted, and a stud where that part has no slot does not go
+  // unused: it stands against the part's solid face and holds the two apart.
+  // So a stud goes only where a slot can be cut, the same base asks for the
+  // same positions under either type, and a trimmed entry, which still takes
+  // the head, keeps its stud.
+  //
+  // The slots' grid is turned over about the slide axis as a whole, which
+  // carries each slot across that axis, and turning the slotted partner over
+  // to face this base carries them back. So the studs stand at the grid
+  // positions themselves, unturned. Each stud is turned over about its own
+  // centre instead, for the reason the slots are: the helper builds it standing
+  // UP off a face with the material below, and this base's material is above.
+  // Turned about the slide axis, a slide name still lands on the same axis, so
+  // slotSlideDirection names the way the slotted part slides to come off - the
+  // name its own slots were cut with.
+  module rectangularMountStuds() {
+    for (p = fitted_slots)
+      translate([p.x, p.y, board_z])
+        openGridMountTurnedStud();
+  }
+
+  // The same for a disc, where mount_offset has already mirrored the grid to
+  // face the slotted partner - see its definition.
+  module circularMountStuds() {
+    for (ij = circular_mounts)
+      let (p = mountPosition(ij))
+        translate([p.x, p.y, board_z])
+          openGridMountTurnedStud();
+  }
+
+  // One stud, standing DOWN off a face at the local Z = 0 plane. Always the
+  // full head with both lock notches, the one a screwed-in connector presents:
+  // the notches are where a slot's lock nub seats, so a stud without them is
+  // one the nub squeezes against rather than clicks into, and which slots carry
+  // nubs is the slotted part's own business.
+  module openGridMountTurnedStud() {
+    rot(180, v=openGridMountSlotFlipAxis(slotSlideDirection))
+      openGridMountStud(slotSlideDirection=slotSlideDirection, lockNotches="Both");
+  }
+
   // The grid positions that get an anchor, as [name_i, name_j, [x, y]].
   //
   // A rectangular base publishes every tile it covers, mounted or not - every
@@ -1251,7 +1482,7 @@ module openGridMountBase(
         [ij.x - circular_i_min, circular_j_max - ij.y, mountPosition(ij)]]
     : [for (i = [0 : xUnits - 1], j = [0 : yUnits - 1]) [i, j, rectPosition(i, j)]];
 
-  board_z = -total_thickness / 2 + snap_thickness;
+  board_z = -total_thickness / 2 + mount_standoff;
 
   anchors = concat(
     [named_anchor("board", [0, 0, board_z], DOWN, 0)],
@@ -1290,10 +1521,12 @@ module openGridMountBase(
   module topEdgeMask() {
     reach = total_thickness * 2 + top_edge_size + 1;
     up(total_thickness / 2) {
+      // undef rather than 0 for the break not asked for: cyl() refuses a
+      // rounding2 and a chamfer2 together, and counts a 0 as given.
       if (circularBase) {
         cyl(h=reach, d=diameter, anchor=TOP,
-          rounding2=(topEdgeRefinementType == "Fillet" ? top_edge_size : 0),
-          chamfer2=(topEdgeRefinementType == "Chamfer" ? top_edge_size : 0));
+          rounding2=(topEdgeRefinementType == "Fillet" ? top_edge_size : undef),
+          chamfer2=(topEdgeRefinementType == "Chamfer" ? top_edge_size : undef));
       } else {
         cuboid([x_size, y_size, reach], anchor=TOP, edges=TOP,
           rounding=(topEdgeRefinementType == "Fillet" ? top_edge_size : 0),
@@ -1314,7 +1547,26 @@ module openGridMountBase(
   }
 
   module slabWithMount() {
-    if (openConnectMount) {
+    if (studMount) {
+      // The slab sits above the studs, which take the bottom mount_standoff of
+      // the envelope. Each stud's neck meets the slab's face over its whole
+      // section, so the two print as one body.
+      union() {
+        up(mount_standoff / 2) {
+          if (circularBase) {
+            cyl(h=thickness, d=diameter);
+          } else {
+            cuboid(
+              [x_size, y_size, thickness],
+              rounding=(cornerRefinementType == "Fillet" ? cornerRefinementSize : 0),
+              chamfer=(cornerRefinementType == "Chamfer" ? cornerRefinementSize : 0),
+              edges="Z"
+            );
+          }
+        }
+        if (circularBase) circularMountStuds(); else rectangularMountStuds();
+      }
+    } else if (slotMount) {
       difference() {
         if (circularBase) {
           cyl(h=thickness, d=diameter);
