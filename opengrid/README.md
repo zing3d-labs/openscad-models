@@ -8,6 +8,7 @@ openGrid uses a standardized 28mm grid with a snap connector spec that keeps acc
 
 | File | Description |
 |------|-------------|
+| `parts/opengrid_adapter.scad` | Adapter plate for hanging another system's parts on openGrid — openConnect slots, studs or snaps on the back, and Multiconnect studs or slots, openConnect studs or openGrid snaps on the front, each face on its own grid ([docs](parts/opengrid_adapter.md)) |
 | `parts/opengrid_beam.scad` | Corner beam for building basket frames |
 | `parts/opengrid_block.scad` | Plain block that mounts to openGrid by openConnect slots or snaps — a stop that keeps a mounted part from sliding off a horizontal board, and a spacer or riser otherwise |
 | `parts/opengrid_connector.scad` | Grid connector hardware |
