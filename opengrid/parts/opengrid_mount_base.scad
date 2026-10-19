@@ -143,6 +143,34 @@
   A disc has no corners, so cornerRefinementType is ignored on one.
 
   ---------------------------------------------------------------------------
+  Outline and grid
+
+  By default a rectangular base and its grid are one thing: xUnits by yUnits
+  tiles, every one of them whole. A consumer that needs the two apart - a
+  part whose outline is set by something other than the board, as
+  opengrid_adapter.scad's is by the connectors on its other face - passes
+  three things the Customizer above does not offer:
+
+      size        the outline in mm, [x, y], instead of whole tiles.
+      gridOffset  where the centre of the grid sits, from the centre of that
+                  outline. Nothing else about the grid moves: the mounts stay
+                  28mm apart and are chosen by the same rules.
+      xUnits = 0  Auto - as many as fit the size, by the same rules the base
+      yUnits = 0  cuts them by. openGridMountAutoUnits() gives the count, so a
+                  consumer can know it before it draws anything.
+
+  The fit rules do not change at all. A slot still needs its footprint inside
+  the outline and its cutter MIN_SLOT_EDGE_WALL inside it, and is trimmed or
+  dropped exactly as on a whole-tile base - they are simply asked of an
+  outline that need not match the grid. A snap has nothing shorter to fall back
+  on, so a snap hanging over the edge of a sized base is refused instead.
+
+  Every fit test is asked in the grid's own frame (see slotFitsWith() below),
+  so the outline is the one thing moved: by the opposite of gridOffset, and for
+  slots carried through the half turn their grid takes. A base given no size is
+  drawn exactly as it was before any of this existed.
+
+  ---------------------------------------------------------------------------
   Breaking the edges
 
   Two refinements, applied to different edges and answering to different
@@ -496,6 +524,11 @@ MOUNT_OFFSET_STEP = 0.25;
 // BOSL2 rather than a shape with no slots in it.
 REFINEMENT_SUGGESTION_STEP = 0.5;
 
+// Slack in openGridMountAutoUnits()'s count, so a span that fits a mount
+// exactly is not lost to rounding in the division. Far below anything a
+// printer could tell apart.
+AUTO_FIT_EPS = 1e-9;
+
 openGridMountBase(
   baseShape=Base_Shape,
   xUnits=Units_X,
@@ -556,6 +589,36 @@ function openGridMountSnapThickness(liteSnap = false) = liteSnap ? 3.4 : 6.8;
 // at the library's own defaults. A stop placed closer than this to the part it
 // blocks cannot be slid past, which is the whole basis of opengrid_block.scad.
 function openGridMountSlotReleaseTravel() = OCSLOT_MOVE_DISTANCE;
+
+// How many mounts of a type fit, in each direction, in a rectangle `size` mm
+// across with the grid centred on it - the count a base given that size and an
+// Auto (0) count gets. Either count may be 0: a span narrower than one mount.
+//
+// A mount fits when it fits by the same rules the base cuts it by, so this is
+// those rules solved along each axis on their own, which a plain rectangle
+// lets them be. A slot or a stud needs its footprint inside the rectangle and
+// its cutter - with the entry trimmed, which is the most the base will offer
+// one - held MIN_SLOT_EDGE_WALL inside it; a snap needs its SNAP_FOOTPRINT.
+// Both outlines turn with the slide direction, so the axis a slot is long in
+// is read off the turned outline rather than assumed. Each is taken at its
+// furthest reach either side of the centre, since the slots' grid is turned
+// over as a whole and an outline's short side can end up on either edge.
+//
+// No corner refinement enters into it. A refinement only ever costs the
+// corner positions, and the base drops or trims those itself; counting it
+// here would cost a whole row or column for want of one corner.
+function openGridMountAutoUnits(mountType = "openConnect", size = [56, 56], slotSlideDirection = "Up") =
+  let (
+    openConnect = mountType == "openConnect" || mountType == "openConnect Studs",
+    cutter = openGridMountSlotCutterOutline(slotSlideDirection, SLOT_ENTRY_TRIM),
+    footprint = openGridMountSlotFootprint(slotSlideDirection),
+    reach = openConnect
+      ? [for (axis = [0, 1])
+          max(max([for (v = cutter) abs(v[axis])]) + MIN_SLOT_EDGE_WALL,
+            max([for (v = footprint) abs(v[axis])]))]
+      : [SNAP_FOOTPRINT / 2, SNAP_FOOTPRINT / 2]
+  ) [for (axis = [0, 1])
+      max(0, floor((size[axis] / 2 - reach[axis]) / (OG_TILE_SIZE / 2) + 1 + AUTO_FIT_EPS))];
 
 // The angle the slot cutter is turned to face a given slide direction. The
 // library keeps this mapping to itself, so it is repeated here to stay in step.
@@ -823,6 +886,8 @@ module openGridMountBase(
   baseShape = "Rectangular",
   xUnits = 2,
   yUnits = 2,
+  size = undef,
+  gridOffset = [0, 0],
   diameter = 100,
   mountAlignment = "Maximal",
   thickness = 4,
@@ -864,8 +929,27 @@ module openGridMountBase(
   // The noun the reports use for one mount of the type in force.
   mount_noun = slotMount ? "openConnect slot" : studMount ? "openConnect stud" : "openGrid snap";
 
-  x_size = circularBase ? diameter : xUnits * OG_TILE_SIZE;
-  y_size = circularBase ? diameter : yUnits * OG_TILE_SIZE;
+  // A rectangular base is a whole number of tiles unless it is given a size in
+  // mm, and a count of 0 is Auto: as many as fit that size. See "Outline and
+  // grid" in the header.
+  sized = !circularBase && !is_undef(size);
+  assert(circularBase || sized || (xUnits != 0 && yUnits != 0),
+    str("openGridMountBase: an Auto (0) count needs a size in mm to fill - xUnits is ",
+      xUnits, " and yUnits is ", yUnits, ", and no size was given."));
+  auto_units = sized ? openGridMountAutoUnits(mountType, size, slotSlideDirection) : [0, 0];
+  x_units = xUnits == 0 ? auto_units.x : xUnits;
+  y_units = yUnits == 0 ? auto_units.y : yUnits;
+  auto_count = sized && (xUnits == 0 || yUnits == 0);
+
+  if (auto_count)
+    echo(str("opengrid_mount_base: Auto fits a ", x_units, "x", y_units, " grid of ",
+      mountType, " mounts in a ", size.x, "x", size.y, "mm base."));
+
+  x_size = circularBase ? diameter : sized ? size.x : x_units * OG_TILE_SIZE;
+  y_size = circularBase ? diameter : sized ? size.y : y_units * OG_TILE_SIZE;
+
+  assert(circularBase || sized || approx(gridOffset, [0, 0]),
+    "openGridMountBase: gridOffset only means something on a base given a size in mm.");
 
   // Snaps reach into the board rather than out from it, and studs into the
   // part that slides onto them, so both add to the model's height without
@@ -888,9 +972,10 @@ module openGridMountBase(
       thickness, "mm, which leaves no base at all."));
 
   assert(circularBase
-      || (xUnits >= 1 && yUnits >= 1 && xUnits == floor(xUnits) && yUnits == floor(yUnits)),
+      || (x_units >= 1 && y_units >= 1 && x_units == floor(x_units) && y_units == floor(y_units)),
     str("openGridMountBase: xUnits and yUnits must be whole numbers of 28mm grid ",
-      "units, at least one each - they are ", xUnits, " and ", yUnits, "."));
+      "units, at least one each - they are ", x_units, " and ", y_units,
+      auto_count ? str(", Auto having found no more in a ", x_size, "x", y_size, "mm base.") : "."));
 
   slot_footprint = openGridMountSlotFootprint(slotSlideDirection);
   slot_cutter_outline = openGridMountSlotCutterOutline(slotSlideDirection);
@@ -908,12 +993,25 @@ module openGridMountBase(
   // normal, which shortens the leg by b(2 - sqrt(2)). Clamped at zero, since a
   // corner cannot be refined by a negative amount - an inset deeper than the
   // refinement simply leaves a square corner.
+  //
+  // Every fit test is asked in the GRID's frame, so the outline is moved into
+  // that frame here: by the opposite of gridOffset, carried through the turn
+  // the slots' grid takes (see slotFitsWith() below). Studs and snaps are not
+  // turned, so for them it is the plain opposite. A base with no offset skips
+  // the move rather than adding nothing to every point, so it stays exactly
+  // the outline it always was.
+  grid_frame_shift = !slotMount ? -gridOffset
+    : openGridMountSlotFlipAxis(slotSlideDirection) == BACK
+      ? [gridOffset.x, -gridOffset.y]
+      : [-gridOffset.x, gridOffset.y];
+
   function baseOutlineAt(inset, refinementSize) =
     let (refined = max(0, refinementSize -
-      inset * (cornerRefinementType == "Chamfer" ? 2 - sqrt(2) : 1)))
-      rect([x_size - inset * 2, y_size - inset * 2],
+      inset * (cornerRefinementType == "Chamfer" ? 2 - sqrt(2) : 1)),
+      outline = rect([x_size - inset * 2, y_size - inset * 2],
         rounding=(cornerRefinementType == "Fillet" ? refined : 0),
-        chamfer=(cornerRefinementType == "Chamfer" ? refined : 0));
+        chamfer=(cornerRefinementType == "Chamfer" ? refined : 0)))
+      approx(gridOffset, [0, 0]) ? outline : move(grid_frame_shift, outline);
 
   function baseOutline(inset = 0) = baseOutlineAt(inset, cornerRefinementSize);
 
@@ -983,7 +1081,7 @@ module openGridMountBase(
   // downward - j = 0 is the row furthest in +Y - which is the library's own
   // convention and the one is_grid_pos_described() reads.
   function rectPosition(i, j) =
-    [-(xUnits - i * 2 - 1) * OG_TILE_SIZE / 2, (yUnits - j * 2 - 1) * OG_TILE_SIZE / 2];
+    [-(x_units - i * 2 - 1) * OG_TILE_SIZE / 2, (y_units - j * 2 - 1) * OG_TILE_SIZE / 2];
 
   // Which rectangular grid positions carry a snap. Same vocabulary the circular
   // base reads off its supported positions, applied to a full rectangle where
@@ -992,20 +1090,32 @@ module openGridMountBase(
   // middle column, which is what lets the drawing below turn the whole slab
   // over without moving a snap.
   function rectSnapSelected(i, j) =
-    let (edge_row = (j == 0 || j == yUnits - 1),
-         edge_col = (i == 0 || i == xUnits - 1))
+    let (edge_row = (j == 0 || j == y_units - 1),
+         edge_col = (i == 0 || i == x_units - 1))
       snapPlacement == "All" ? true
       : snapPlacement == "Edges" ? (edge_row || edge_col)
       : (edge_row && edge_col);
 
   rect_snap_positions = (circularBase || openConnectMount) ? [] : [
-    for (i = [0 : xUnits - 1], j = [0 : yUnits - 1])
+    for (i = [0 : x_units - 1], j = [0 : y_units - 1])
       if (rectSnapSelected(i, j)) rectPosition(i, j)
   ];
 
+  // A base given a size in mm need not cover its grid, and a snap that hangs
+  // over the edge has a nub with nothing behind it. The slots have rules that
+  // drop such a position; a snap has no shorter version to fall back on, and
+  // the outlines that call for a size - the adapter's - are built to cover the
+  // grid, so one hanging over is a caller's mistake and is refused.
+  if (sized && !openConnectMount)
+    for (p = rect_snap_positions)
+      assert(is_pos_shape_in_region(cp=p + gridOffset,
+          footprint=rect([SNAP_FOOTPRINT, SNAP_FOOTPRINT]), limit_region=[rect([x_size, y_size])]),
+        str("openGridMountBase: a snap at ", p + gridOffset, "mm hangs over the edge of a ",
+          x_size, "x", y_size, "mm base. Make the base bigger or the grid smaller."));
+
   requested_slots = circularBase ? [] : [
-    for (i = [0 : xUnits - 1], j = [0 : yUnits - 1])
-      if (is_grid_pos_described(i, j, xUnits, yUnits, slotPosition))
+    for (i = [0 : x_units - 1], j = [0 : y_units - 1])
+      if (is_grid_pos_described(i, j, x_units, y_units, slotPosition))
         [[i, j], rectPosition(i, j)]
   ];
 
@@ -1273,7 +1383,7 @@ module openGridMountBase(
         str(n, n == 1 ? " slot" : " slots"), " on a ",
       circularBase
         ? str(diameter, "mm circular base. ")
-        : str(xUnits, "x", yUnits, " grid over a ", x_size, "x", y_size, "mm base. "),
+        : str(x_units, "x", y_units, " grid over a ", x_size, "x", y_size, "mm base. "),
       "Each slot takes ", slot_depth, "mm of the ", thickness, "mm base, leaving ",
       thickness - slot_depth, "mm of floor under it.",
       let (trimmed = circularBase ? len(circular_trimmed) : len(trimmed_slots))
@@ -1295,7 +1405,7 @@ module openGridMountBase(
         str(n, n == 1 ? " stud" : " studs"), " on a ",
       circularBase
         ? str(diameter, "mm circular base. ")
-        : str(xUnits, "x", yUnits, " grid over a ", x_size, "x", y_size, "mm base. "),
+        : str(x_units, "x", y_units, " grid over a ", x_size, "x", y_size, "mm base. "),
       "Each stands ", mount_standoff, "mm proud of the board-facing face, and they ",
       "sit exactly where the same base with slots cuts them, so that base turned ",
       "over about the slide axis slides onto these."
@@ -1338,8 +1448,8 @@ module openGridMountBase(
                    : " Reduce it, turn it off, or enlarge the base.")
               some < 0
                 ? str(" No ", cornerRefinementType, " of any size leaves a ", noun, " on a ",
-                    xUnits, "x", yUnits, " base.", fix)
-                : str(" On this ", xUnits, "x", yUnits, " base a ", cornerRefinementType,
+                    x_units, "x", y_units, " base.", fix)
+                : str(" On this ", x_units, "x", y_units, " base a ", cornerRefinementType,
                     " of up to ", all, "mm keeps ", every,
                     approx(all, some) ? "" : str(", and up to ", some,
                       "mm keeps at least one"),
@@ -1371,12 +1481,12 @@ module openGridMountBase(
   // that only fit because they are allowed to be shortened - also something the
   // library cannot be asked for, since one grid call draws every slot alike.
   module rectangularMountSlots() {
-    down(thickness / 2)
+    move([gridOffset.x, gridOffset.y, -thickness / 2])
       rot(180, v=openGridMountSlotFlipAxis(slotSlideDirection))
         difference() {
           openGridMountSlotGrid(
-            xUnits=xUnits,
-            yUnits=yUnits,
+            xUnits=x_units,
+            yUnits=y_units,
             slotSlideDirection=slotSlideDirection,
             slotPosition=slotPosition,
             lockDistribution=openGridMountTurnedLockDistribution(
@@ -1441,7 +1551,7 @@ module openGridMountBase(
   // name its own slots were cut with.
   module rectangularMountStuds() {
     for (p = fitted_slots)
-      translate([p.x, p.y, board_z])
+      translate([p.x + gridOffset.x, p.y + gridOffset.y, board_z])
         openGridMountTurnedStud();
   }
 
@@ -1480,7 +1590,7 @@ module openGridMountBase(
   anchor_positions = circularBase
     ? [for (ij = mount_indices)
         [ij.x - circular_i_min, circular_j_max - ij.y, mountPosition(ij)]]
-    : [for (i = [0 : xUnits - 1], j = [0 : yUnits - 1]) [i, j, rectPosition(i, j)]];
+    : [for (i = [0 : x_units - 1], j = [0 : y_units - 1]) [i, j, rectPosition(i, j) + gridOffset]];
 
   board_z = -total_thickness / 2 + mount_standoff;
 
@@ -1550,17 +1660,22 @@ module openGridMountBase(
     if (studMount) {
       // The slab sits above the studs, which take the bottom mount_standoff of
       // the envelope. Each stud's neck meets the slab's face over its whole
-      // section, so the two print as one body.
+      // section, so the two print as one body - but only if they meet exactly.
+      // The studs stand at board_z, so the slab's face is put there too,
+      // rather than at a centre worked out separately: the two sums disagree
+      // in the last bit at some thicknesses (4.95mm, for one), and a stud that
+      // misses the face by that much exports as a body of its own.
       union() {
-        up(mount_standoff / 2) {
+        up(board_z) {
           if (circularBase) {
-            cyl(h=thickness, d=diameter);
+            cyl(h=thickness, d=diameter, anchor=BOTTOM);
           } else {
             cuboid(
               [x_size, y_size, thickness],
               rounding=(cornerRefinementType == "Fillet" ? cornerRefinementSize : 0),
               chamfer=(cornerRefinementType == "Chamfer" ? cornerRefinementSize : 0),
-              edges="Z"
+              edges="Z",
+              anchor=BOTTOM
             );
           }
         }
@@ -1622,7 +1737,7 @@ module openGridMountBase(
           ) {
             for (p = rect_snap_positions)
               color("lightblue")
-                translate(p)
+                translate([p.x + gridOffset.x, p.y - gridOffset.y])
                   attach(TOP, TOP)
                     openGridSnap(lite=liteSnap);
           }
