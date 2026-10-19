@@ -10,8 +10,8 @@
              board. Or openConnect studs, or openGrid snaps: the back is
              opengrid_mount_base.scad and offers what that offers.
       front  Multiconnect studs, for the part's Multiconnect slots to slide
-             onto. Or Multiconnect slots, openConnect studs, openGrid snaps, or
-             nothing at all.
+             onto. Or Multiconnect slots, Multiboard threaded holes or snap
+             holes, openConnect studs, openGrid snaps, or nothing at all.
 
   ---------------------------------------------------------------------------
   Two grids in one outline
@@ -130,22 +130,45 @@
   openGrid Snaps - QuackWorks openGridSnap(), as the mount base uses for its
     own snaps, so the front clicks into an openGrid tile. Full or Lite.
 
+  Multiboard Large, Mid and Small Thread Holes - threaded holes cut into the
+    front, for a Multiconnect post, a bolt or anything else carrying one of
+    Multiboard's three threads to screw into. Each is the thread itself made
+    0.25mm larger across, with its teeth cut back to a tip diameter and a
+    45-degree lead-in at the mouth; see MULTIBOARD_THREAD_LARGE and below.
+    The large and small are the threads of a tile's two holes. A tile has no
+    mid holes - the mid thread is what screws into a snap's centre - but a
+    mid hole on the front takes the same mid-thread posts. Thread_Depth is
+    how far the hole goes in, 6.4mm by default, a tile's thickness: a post
+    with a longer thread would bottom out in that, so give it more.
+
+  Multiboard Snap Holes - a tile's large hole, without the thread by default,
+    for a Multiboard snap, or a part with one built in, to click into. The
+    adapter makes the hole only; the snap is the hung part's. Its octagon
+    narrows from the face to a band the snap's body passes through, then
+    widens again behind it for the snap's bumps to catch on - see
+    MULTIBOARD_SNAP_HOLE_PROFILE. Snap_Hole_Thread cuts the large thread into
+    it as well, as a tile has it, so the same hole also takes a large-thread
+    post. A snap hole is always a tile's 6.4mm deep, whatever Thread_Depth
+    says: it is the depth the snap was made for.
+
   None - a plain plate, for a part that will be glued or screwed on.
 
   The openGrid types are on the 28mm grid whatever Front_Pitch says; it is the
   Multiconnect types that come in other pitches (QuackWorks' parts take a
-  distanceBetweenSlots), so only they read it.
+  distanceBetweenSlots), and the Multiboard ones are on the same grid, so only
+  they read it.
 
   ---------------------------------------------------------------------------
   Thickness
 
   Thickness is the slab, as on the mount base. Cuts come in from both faces -
-  openConnect slots from the back, Multiconnect slots from the front - and two
-  cuts that met would leave a hole straight through. A plate whose cuts could
-  meet is therefore built thicker: back cut, front cut and the mount base's
-  floor wall between them. Studs and snaps cut nothing. The cuts are not
-  placed to miss each other; they are kept apart in depth, which holds
-  wherever alignment puts them. Raising it is reported, never silent.
+  openConnect slots from the back; Multiconnect slots and Multiboard holes
+  from the front - and two cuts that met would leave a hole straight through.
+  A plate whose cuts could meet is therefore built thicker: back cut, front
+  cut and the mount base's floor wall between them. Studs and snaps cut
+  nothing. The cuts are not placed to miss each other; they are kept apart in
+  depth, which holds wherever alignment puts them. Raising it is reported,
+  never silent.
 
   ---------------------------------------------------------------------------
   Licensing
@@ -177,8 +200,11 @@
 */
 
 // Brings in BOSL2 (via lib/opengrid_base.scad) along with the OG_ constants
-// and is_grid_pos_described(), so no separate BOSL2 include.
+// and is_grid_pos_described(), so no separate BOSL2 include - except for
+// threading, which the library only reaches through a use and so leaves out
+// of scope here.
 include <../../external/opengrid-projects/lib/openconnect_lib.scad>
+include <BOSL2/threading.scad>
 use <opengrid_mount_base.scad>
 use <../../external/QuackWorks/openGrid/opengrid-snap.scad>
 
@@ -225,7 +251,7 @@ Snap_Placement = "Corners"; // [All, Edges, Corners]
 /* [Front] */
 
 // What the front carries, for the part that hangs on it
-Front_Mount_Type = "Multiconnect Studs"; // [Multiconnect Studs, Multiconnect Slots, openConnect Studs, openGrid Snaps, None]
+Front_Mount_Type = "Multiconnect Studs"; // [Multiconnect Studs, Multiconnect Slots, Multiboard Large Thread Holes, Multiboard Mid Thread Holes, Multiboard Small Thread Holes, Multiboard Snap Holes, openConnect Studs, openGrid Snaps, None]
 
 // Front cells across, in X. 0 is Auto: as many as fit the back.
 Front_Columns = 3; // [0:1:16]
@@ -237,8 +263,8 @@ Front_Rows = 3; // [0:1:16]
 // line of cells, so for them this picks the lines.
 Front_Position = "All"; // [All, Staggered, Edge Rows, Edge Columns, Corners]
 
-// Front cell pitch in mm. 0 is the system's own: 25 for Multiconnect. The
-// openGrid types are always 28 and ignore this.
+// Front cell pitch in mm. 0 is the system's own: 25 for Multiconnect and
+// Multiboard. The openGrid types are always 28 and ignore this.
 Front_Pitch = 0; // [0:0.5:40]
 
 // Direction the hung part slides to come OFF the front, for Multiconnect slots
@@ -249,6 +275,17 @@ Front_Slide_Direction = "Up"; // [Up, Down, Left, Right]
 
 // Pattern on the outer face of a Multiconnect stud
 Multiconnect_Head_Pattern = "Dimple"; // [Dimple, Coin Slot, None]
+
+/* [Front: Multiboard] */
+
+// How deep a threaded hole goes into the plate, in mm. 6.4 is a Multiboard
+// tile's thickness; go deeper for a post with a longer thread. The slab is
+// raised, and says so, to keep its floor behind the hole.
+Thread_Depth = 6.4; // [1:0.1:30]
+
+// Cut Multiboard's large thread into the snap holes as well, as a tile has
+// it, so a large-thread post screws into the same hole a snap clicks into.
+Snap_Hole_Thread = false;
 
 /* [Front: openGrid Snaps] */
 
@@ -347,6 +384,48 @@ MULTICONNECT_RAMP_LENGTH = 5;
 MULTICONNECT_RIDGE_DEPTH = 0.4;
 MULTICONNECT_RIDGE_LENGTH = 8;
 
+// Multiboard's three threads, as the bolt or post that screws in has them:
+// [major diameter, pitch, flank angle, tooth depth]. All single-start and
+// right-handed, with trapezoidal teeth whose crest and root flats are equal;
+// the flank angle is BOSL2's, each face's angle from the plane across the
+// axis.
+MULTIBOARD_THREAD_LARGE = [22.25, 2.5, 45, 0.75];
+MULTIBOARD_THREAD_MID = [14.05, 3, 45, 0.9];
+MULTIBOARD_THREAD_SMALL = [6.75, 3, 60, 0.5];
+
+// A hole is the same thread made this much larger across, 0.125mm all round,
+// which is what a Multiboard tile's own holes allow a bolt.
+MULTIBOARD_THREAD_CLEARANCE = 0.25;
+
+// How far in a hole's teeth reach: the diameter of the tips, which is cut
+// back from the clearanced thread's own root. The large hole's tips are a
+// tile's 21.4mm across - see the snap hole below. The mid hole's are 13.5,
+// which leaves room for a post cut with a shallower mid thread than the bolt
+// above. The small hole's are its root, 6.0, so they are not cut back at all.
+MULTIBOARD_HOLE_TIP_LARGE = 21.4;
+MULTIBOARD_HOLE_TIP_MID = 13.5;
+MULTIBOARD_HOLE_TIP_SMALL = 6.0;
+
+// The 45-degree lead-in round a threaded hole's mouth, radially, so a post
+// starts square rather than catching on the first tooth.
+MULTIBOARD_HOLE_CHAMFER = 0.5;
+
+// A Multiboard tile's large hole, which a snap clicks into: an octagon with
+// its flats along the grid, as [depth below the face, across flats]. It
+// narrows at 0.5mm per mm from 23.4mm at the face to a 21.4mm band, which a
+// snap's body passes through, and widens again past the band at the same
+// rate. A snap's flange and taper seat on the near taper, and the bumps on
+// its sides spring out behind the band and press on the far one - without
+// that widening they have nothing to catch behind. 6.4mm is a tile's
+// thickness; a snap is 6.0.
+MULTIBOARD_SNAP_HOLE_PROFILE = [[0, 23.4], [2.0, 21.4], [4.4, 21.4], [6.4, 23.4]];
+MULTIBOARD_SNAP_HOLE_DEPTH = 6.4;
+MULTIBOARD_SNAP_HOLE_FACE_WIDTH = 23.4;
+
+// How far a front cut is carried up past the face it is cut into, so it
+// breaks through cleanly rather than ending on the face.
+FRONT_CUT_OVERSHOOT = 1;
+
 // How far a front stud or snap is sunk into the face it stands on. The face
 // comes from the mount base, whose arithmetic puts it at 3.9999999999999996
 // where this file's puts the connector at 4 on some bases - a gap of nothing
@@ -378,6 +457,8 @@ openGridAdapter(
   frontPitch=Front_Pitch,
   frontSlideDirection=Front_Slide_Direction,
   headPattern=Multiconnect_Head_Pattern,
+  threadDepth=Thread_Depth,
+  snapHoleThread=Snap_Hole_Thread,
   frontLiteSnap=(Front_Grid_Type == "Lite"),
   frontAlignX=Front_Align_X,
   frontAlignY=Front_Align_Y,
@@ -397,6 +478,86 @@ openGridAdapter(
 function openGridAdapterMulticonnectPitch() = MULTICONNECT_PITCH;
 function openGridAdapterMulticonnectHeadHeight() = MULTICONNECT_HEAD_HEIGHT;
 function openGridAdapterMulticonnectSlotDepth() = MULTICONNECT_SLOT_DEPTH;
+
+// A Multiboard thread by size - "Large", "Mid" or "Small" - as the bolt has
+// it: [major diameter, pitch, flank angle, tooth depth].
+function openGridAdapterMultiboardThread(size = "Large") =
+  assert(in_list(size, ["Large", "Mid", "Small"]),
+    str("openGridAdapterMultiboardThread: size must be \"Large\", \"Mid\" or \"Small\" - it is \"",
+      size, "\"."))
+  size == "Large" ? MULTIBOARD_THREAD_LARGE
+    : size == "Mid" ? MULTIBOARD_THREAD_MID
+    : MULTIBOARD_THREAD_SMALL;
+
+// The hole's major diameter, and the diameter its teeth are cut back to.
+function openGridAdapterMultiboardHoleDiameter(size = "Large") =
+  openGridAdapterMultiboardThread(size)[0] + MULTIBOARD_THREAD_CLEARANCE;
+function openGridAdapterMultiboardHoleTip(size = "Large") =
+  size == "Large" ? MULTIBOARD_HOLE_TIP_LARGE
+    : size == "Mid" ? MULTIBOARD_HOLE_TIP_MID
+    : MULTIBOARD_HOLE_TIP_SMALL;
+
+function openGridAdapterMultiboardSnapHoleDepth() = MULTIBOARD_SNAP_HOLE_DEPTH;
+
+// A Multiboard thread `length` long, standing up from the local Z = 0 plane.
+// External by default, for a bolt that mates with the hole below. With
+// `clearance` it is the hole's own thread, which is what the hole is cut
+// with.
+//
+// Both are built with BOSL2's internal-thread construction, which phases the
+// teeth from a crest rather than a root and enlarges the facets to stand
+// outside the true circle. That makes the bolt a hair larger than nominal,
+// and puts it in phase with the hole when the two stand on the same plane
+// at the same length - so differencing one from the other is a fair test of
+// fit, rather than of where each happens to start its helix.
+module openGridAdapterMultiboardThread(size = "Large", length = 6.4, clearance = 0) {
+  t = openGridAdapterMultiboardThread(size);
+  trapezoidal_threaded_rod(d=t[0] + clearance, l=length, pitch=t[1], flank_angle=t[2],
+    thread_depth=t[3], internal=true, blunt_start=false, $slop=0, anchor=BOTTOM);
+}
+
+// One Multiboard threaded hole, cut DOWN into a face at the local Z = 0 plane
+// with the material below it, `depth` deep, with its lead-in at the face.
+module openGridAdapterMultiboardThreadHole(size = "Large", depth = 6.4) {
+  d = openGridAdapterMultiboardHoleDiameter(size);
+  length = depth + FRONT_CUT_OVERSHOOT;
+  down(depth) {
+    openGridAdapterMultiboardThread(size, length, MULTIBOARD_THREAD_CLEARANCE);
+    cyl(d=openGridAdapterMultiboardHoleTip(size), h=length, anchor=BOTTOM);
+  }
+  down(MULTIBOARD_HOLE_CHAMFER)
+    cyl(h=MULTIBOARD_HOLE_CHAMFER + FRONT_CUT_OVERSHOOT, d1=d,
+      d2=d + 2 * (MULTIBOARD_HOLE_CHAMFER + FRONT_CUT_OVERSHOOT), anchor=BOTTOM);
+}
+
+// One Multiboard snap hole, cut DOWN into a face at the local Z = 0 plane:
+// a tile's large hole, MULTIBOARD_SNAP_HOLE_PROFILE, with the floor at its
+// full depth. With `thread`, the large thread is cut into it as on a tile,
+// where the octagon's flats are the thread's tips - the teeth stand only
+// round the middle of each flat, and the corners stay open.
+module openGridAdapterMultiboardSnapHole(thread = false) {
+  // The near taper carried on up past the face, at its own slope.
+  near = MULTIBOARD_SNAP_HOLE_PROFILE[0];
+  next = MULTIBOARD_SNAP_HOLE_PROFILE[1];
+  slope = (near[1] - next[1]) / (next[0] - near[0]);
+  profile = concat(
+    [[-FRONT_CUT_OVERSHOOT, near[1] + slope * FRONT_CUT_OVERSHOOT]],
+    MULTIBOARD_SNAP_HOLE_PROFILE
+  );
+  // rotate_extrude() into eight sides puts a corner on +X, and a sixteenth
+  // of a turn more puts a flat there instead, along the grid. The profile's
+  // widths are across flats, so each is taken out to the corner.
+  corner = 1 / cos(180 / 8);
+  zrot(180 / 8) rotate_extrude($fn=8)
+    polygon(concat(
+      [for (p = profile) [p[1] / 2 * corner, -p[0]]],
+      [[0, -last(profile)[0]], [0, -profile[0][0]]]
+    ));
+  if (thread)
+    down(MULTIBOARD_SNAP_HOLE_DEPTH)
+      openGridAdapterMultiboardThread("Large", MULTIBOARD_SNAP_HOLE_DEPTH + FRONT_CUT_OVERSHOOT,
+        MULTIBOARD_THREAD_CLEARANCE);
+}
 
 // A Multiconnect head the way multiconnect_head(anchor=BOTTOM) draws it -
 // flange down on the Z = 0 plane, neck up - built from the same primitives in
@@ -500,6 +661,8 @@ module openGridAdapter(
   frontPitch = 0,
   frontSlideDirection = "Up",
   headPattern = "Dimple",
+  threadDepth = 6.4,
+  snapHoleThread = false,
   frontLiteSnap = true,
   frontAlignX = "Center",
   frontAlignY = "Center",
@@ -522,31 +685,52 @@ module openGridAdapter(
   noFront = frontMountType == "None";
   multiconnect = mcStuds || mcSlots;
 
-  assert(multiconnect || ocStuds || ogSnaps || noFront,
+  // A Multiboard threaded hole's size, or undef for any other front.
+  mbThreadSize = frontMountType == "Multiboard Large Thread Holes" ? "Large"
+    : frontMountType == "Multiboard Mid Thread Holes" ? "Mid"
+    : frontMountType == "Multiboard Small Thread Holes" ? "Small"
+    : undef;
+  mbThreads = !is_undef(mbThreadSize);
+  mbSnaps = frontMountType == "Multiboard Snap Holes";
+  multiboard = mbThreads || mbSnaps;
+
+  assert(multiconnect || multiboard || ocStuds || ogSnaps || noFront,
     str("openGridAdapter: frontMountType must be \"Multiconnect Studs\", \"Multiconnect ",
-      "Slots\", \"openConnect Studs\", \"openGrid Snaps\" or \"None\" - it is \"",
-      frontMountType, "\"."));
+      "Slots\", \"Multiboard Large Thread Holes\", \"Multiboard Mid Thread Holes\", ",
+      "\"Multiboard Small Thread Holes\", \"Multiboard Snap Holes\", \"openConnect Studs\", ",
+      "\"openGrid Snaps\" or \"None\" - it is \"", frontMountType, "\"."));
+
+  assert(!mbThreads || threadDepth > 0,
+    str("openGridAdapter: threadDepth is how deep the threaded holes go, so it must be more ",
+      "than 0 - it is ", threadDepth, "."));
 
   front_noun = mcStuds ? "Multiconnect stud" : mcSlots ? "Multiconnect slot"
+    : mbThreads ? str("Multiboard ", downcase(mbThreadSize), " thread hole")
+    : mbSnaps ? "Multiboard snap hole"
     : ocStuds ? "openConnect stud" : ogSnaps ? "openGrid snap" : "plain";
 
   // -------------------------------------------------------------------------
-  // Pitch.
+  // Pitch. Multiconnect is drawn on Multiboard's grid, so the two share one.
 
-  pitch = !multiconnect ? tile : frontPitch > 0 ? frontPitch : MULTICONNECT_PITCH;
+  own_pitch = multiconnect || multiboard;
+  pitch = !own_pitch ? tile : frontPitch > 0 ? frontPitch : MULTICONNECT_PITCH;
 
-  if (!multiconnect && frontPitch > 0 && frontPitch != tile)
+  if (!own_pitch && frontPitch > 0 && frontPitch != tile)
     echo(str("opengrid_adapter: Front_Pitch is ", frontPitch, "mm, but ", front_noun,
       "s are on openGrid's own ", tile, "mm, so it is ignored."));
 
-  // The smallest cell each Multiconnect type keeps a wall round. A stud's
-  // flange; a slot's on-ramp where it meets the face, which is the widest the
-  // channel is anywhere on the plate.
+  // The smallest cell each type that has its own pitch keeps a wall round. A
+  // stud's flange; a slot's on-ramp where it meets the face, which is the
+  // widest the channel is anywhere on the plate; a threaded hole's lead-in;
+  // a snap hole's octagon at the face, whose flats face its neighbours.
   ramp_face_radius = MULTICONNECT_RAMP_FLOOR_RADIUS
     + (MULTICONNECT_RAMP_OUTER_RADIUS - MULTICONNECT_RAMP_FLOOR_RADIUS)
       * MULTICONNECT_SLOT_DEPTH / MULTICONNECT_RAMP_LENGTH;
   min_pitch = mcStuds ? MULTICONNECT_HEAD_FLANGE_DIAMETER + FRONT_MIN_WALL
     : mcSlots ? ramp_face_radius * 2 + FRONT_MIN_WALL
+    : mbThreads ? openGridAdapterMultiboardHoleDiameter(mbThreadSize) + 2 * MULTIBOARD_HOLE_CHAMFER
+        + FRONT_MIN_WALL
+    : mbSnaps ? MULTIBOARD_SNAP_HOLE_FACE_WIDTH + FRONT_MIN_WALL
     : 0;
 
   assert(pitch >= min_pitch,
@@ -632,14 +816,18 @@ module openGridAdapter(
 
   back_slots = backMountType == "openConnect";
   back_cut = back_slots ? openGridMountSlotDepth() : 0;
-  front_cut = mcSlots ? MULTICONNECT_SLOT_DEPTH : 0;
+  front_cut = mcSlots ? MULTICONNECT_SLOT_DEPTH
+    : mbThreads ? threadDepth
+    : mbSnaps ? MULTIBOARD_SNAP_HOLE_DEPTH
+    : 0;
+  front_cuts = front_cut > 0;
   min_thickness = back_cut + front_cut + openGridMountMinBaseWall();
   slab = max(thickness, min_thickness);
 
   if (slab > thickness)
     echo(str("opengrid_adapter: thickness raised from ", thickness, "mm to ", slab,
       "mm: ", back_cut > 0 ? str(back_cut, "mm of openConnect slot from the back, ") : "",
-      front_cut > 0 ? str(front_cut, "mm of Multiconnect slot from the front, ") : "",
+      front_cut > 0 ? str(front_cut, "mm of ", front_noun, " from the front, ") : "",
       "and ", openGridMountMinBaseWall(), "mm of solid floor ",
       back_cut > 0 && front_cut > 0 ? "between them." : "under it."));
 
@@ -747,16 +935,23 @@ module openGridAdapter(
           }
   }
 
-  module frontSlots() {
-    up(slab)
+  module frontCuts() {
+    up(slab) {
       for (k = mc_lines)
         translate(closedEnd(k))
           zrot(openGridMountSlotFacing(frontSlideDirection))
             openGridAdapterMulticonnectSlot(length=(line_length - 0.5) * pitch, pitch=pitch);
+      if (multiboard)
+        for (c = front_cells)
+          translate(frontCell(c.x, c.y)) {
+            if (mbThreads) openGridAdapterMultiboardThreadHole(mbThreadSize, threadDepth);
+            if (mbSnaps) openGridAdapterMultiboardSnapHole(snapHoleThread);
+          }
+    }
   }
 
   module plate() {
-    if (mcSlots) difference() { backFace(); frontSlots(); }
+    if (front_cuts) difference() { backFace(); frontCuts(); }
     else union() { backFace(); frontStuds(); }
   }
 

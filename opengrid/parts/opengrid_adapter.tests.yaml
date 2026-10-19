@@ -11,8 +11,9 @@ version: 1
 part: opengrid_adapter.scad
 description: >-
   A plate that mounts to openGrid on its back and carries Multiconnect studs or
-  slots, openConnect studs or openGrid snaps on its front, each face on its own
-  pitch, in the smallest outline holding both.
+  slots, Multiboard threaded or snap holes, openConnect studs or openGrid snaps
+  on its front, each face on its own pitch, in the smallest outline holding
+  both.
 
 defaults:
   imgsize: [900, 700]
@@ -34,7 +35,7 @@ features:
       Studs and snaps stand off the front, slots cut into it; every pairing has
       to come out as one body.
     matrix:
-      Front_Mount_Type: [Multiconnect Studs, Multiconnect Slots, openConnect Studs, openGrid Snaps, None]
+      Front_Mount_Type: [Multiconnect Studs, Multiconnect Slots, Multiboard Large Thread Holes, Multiboard Mid Thread Holes, Multiboard Small Thread Holes, Multiboard Snap Holes, openConnect Studs, openGrid Snaps, None]
       Back_Mount_Type: [openConnect, openConnect Studs, Snaps]
     cases:
       - params: {Front_Mount_Type: Multiconnect Studs, Back_Mount_Type: openConnect}
@@ -44,6 +45,10 @@ features:
       - params: {Front_Mount_Type: openConnect Studs, Back_Mount_Type: openConnect}
         render: true
       - params: {Front_Mount_Type: openGrid Snaps, Back_Mount_Type: openConnect}
+        render: true
+      - params: {Front_Mount_Type: Multiboard Large Thread Holes, Back_Mount_Type: openConnect}
+        render: true
+      - params: {Front_Mount_Type: Multiboard Snap Holes, Back_Mount_Type: openConnect}
         render: true
       # A stud back on a slab thickened for front slots, at 4.95mm: the
       # thickness at which the stud base used to export its studs as separate
@@ -210,6 +215,56 @@ features:
       - params: {Front_Position: Corners, Front_Mount_Type: openConnect Studs}
         render: true
 
+  multiboard_threads:
+    label: Multiboard threaded holes
+    description: >-
+      Holes for a post or bolt with one of Multiboard's three threads, each
+      the thread made a little larger with its teeth cut back and a lead-in at
+      the mouth, as deep as Thread_Depth says. The slab grows to keep its
+      floor behind them.
+    # Close on one hole, from high enough to see down into the thread.
+    camera:
+      eye: [40, -40, 60]
+      center: [0, 0, 0]
+    parameters:
+      Front_Columns: 1
+      Front_Rows: 1
+    matrix:
+      Front_Mount_Type: [Multiboard Large Thread Holes, Multiboard Mid Thread Holes, Multiboard Small Thread Holes]
+      Thread_Depth: [3, 6.4, 12]
+    cases:
+      - params: {Front_Mount_Type: Multiboard Large Thread Holes, Thread_Depth: 6.4}
+        render: true
+      - params: {Front_Mount_Type: Multiboard Mid Thread Holes, Thread_Depth: 6.4}
+        render: true
+      - params: {Front_Mount_Type: Multiboard Small Thread Holes, Thread_Depth: 6.4}
+        render: true
+      # The small thread at a pitch only it is narrow enough for.
+      - name: small-pitch-10
+        params: {Front_Mount_Type: Multiboard Small Thread Holes, Front_Pitch: 10, Front_Columns: 4, Front_Rows: 2}
+
+  multiboard_snap_holes:
+    label: Multiboard snap holes
+    description: >-
+      A tile's large hole, octagonal with its flats along the grid, narrowing
+      to a band and widening again behind it for a snap's bumps to catch on.
+      Optionally with the large thread cut into it, as a tile has it.
+    camera:
+      eye: [40, -40, 60]
+      center: [0, 0, 0]
+    parameters:
+      Front_Mount_Type: Multiboard Snap Holes
+      Front_Columns: 1
+      Front_Rows: 1
+    matrix:
+      Snap_Hole_Thread: [false, true]
+      Back_Mount_Type: [openConnect, openConnect Studs, Snaps]
+    cases:
+      - params: {Snap_Hole_Thread: false, Back_Mount_Type: openConnect}
+        render: true
+      - params: {Snap_Hole_Thread: true, Back_Mount_Type: openConnect}
+        render: true
+
   thickness:
     label: Slab thickness
     description: >-
@@ -220,7 +275,7 @@ features:
       center: [0, 0, 0]
     matrix:
       Thickness: [3.5, 4, 8]
-      Front_Mount_Type: [Multiconnect Studs, Multiconnect Slots]
+      Front_Mount_Type: [Multiconnect Studs, Multiconnect Slots, Multiboard Large Thread Holes, Multiboard Snap Holes]
     cases:
       - params: {Thickness: 4, Front_Mount_Type: Multiconnect Slots}
         render: true
