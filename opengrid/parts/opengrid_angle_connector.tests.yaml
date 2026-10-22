@@ -1,0 +1,271 @@
+# Feature tests for the openGrid angle connector.
+#
+# Organised by feature, not by parameter. Every case is measured (bounding box,
+# volume, body count); the cases marked `render: true` are also pictured.
+#
+# Every case renders As Mounted - board face down on Z = 0, hinge along X - so
+# one camera frame serves the whole file. The print layout has its own feature.
+#
+# Body count note: a Tube, Truss or Arch with End_Walls closed is one solid with
+# sealed hollows inside, and a mesh reports each sealed hollow as a shell of its
+# own. A body count above one is only a regression where the case has no closed
+# hollows.
+#
+# See docs/visual-regression-tests.md for the format and how to add a feature.
+
+version: 1
+part: opengrid_angle_connector.scad
+description: >-
+  A load-bearing part that holds an object at a set tilt off an openGrid board:
+  openConnect slots or snaps on the board face, studs, slots or snaps on the
+  tilted object face, and a choice of body joining the two.
+
+defaults:
+  imgsize: [900, 700]
+  colorscheme: Tomorrow Night
+  # From the +X end, square on to the side profile, which is where the tilt and
+  # the body shape both read.
+  camera:
+    eye: [320, 12, 40]
+    center: [0, 12, 40]
+  parameters:
+    Smoothing: 30
+    Print_Orientation: As Mounted
+
+features:
+
+  tilt:
+    label: Tilt angle
+    description: >-
+      The object face's angle off the board, from a flat spacer at 0 to upright
+      at 90. Lift follows the tilt unless set, so the object plate always clears
+      the board plate.
+    matrix:
+      Tilt_Angle: [0, 15, 30, 45, 60, 75, 90]
+    cases:
+      - params: {Tilt_Angle: 0}
+        render: true
+      - params: {Tilt_Angle: 45}
+        render: true
+      - params: {Tilt_Angle: 90}
+        render: true
+      - name: lifted
+        params: {Tilt_Angle: 30, Low_Edge_Height: 20}
+        render: true
+      - name: hinge-offset
+        params: {Tilt_Angle: 60, Low_Edge_Offset: 14}
+
+  placement:
+    label: Face placement
+    description: >-
+      Where the face's low edge sits - its height above the board, how far it
+      is set across the hinge from the board's trailing edge, and how far the
+      face is slid along the hinge - on a board and a face sized
+      independently. A face set out over the board is buttressed from in front
+      of its plane, below the zone kept clear for an overhanging object.
+    parameters:
+      Board_Units_X: 3
+      Board_Units_Y: 3
+      Object_Units_X: 5
+      Object_Units_Y: 3
+    camera:
+      eye: [320, 30, 45]
+      center: [0, 30, 45]
+    matrix:
+      Low_Edge_Height: [0, 20]
+      Low_Edge_Offset: [0, 40, 80]
+      Body_Shape: [Solid, Truss]
+    cases:
+      - name: set-out-over-the-board
+        params: {Low_Edge_Height: 20, Low_Edge_Offset: 80, Body_Shape: Truss}
+        render: true
+      - name: set-out-solid
+        params: {Low_Edge_Height: 20, Low_Edge_Offset: 80, Body_Shape: Solid}
+        render: true
+      # Case names drop a minus sign, so a negative offset is named here
+      # rather than swept, where it would collide with its positive twin.
+      - name: set-in-front-of-the-board
+        params: {Low_Edge_Height: 15, Low_Edge_Offset: -20, Body_Shape: Truss}
+      # Set in only a little, the board is still behind the face, so the mount
+      # stays on the upper side. Set out to 80 (above) it goes underneath.
+      - name: set-in-a-little
+        params: {Low_Edge_Height: 20, Low_Edge_Offset: 20, Body_Shape: Truss}
+      - name: lower-side-upright
+        params: {Tilt_Angle: 90, Low_Edge_Height: 0, Low_Edge_Offset: 90, Body_Shape: Truss}
+        render: true
+      - name: set-out-no-clearance
+        params: {Low_Edge_Height: 20, Low_Edge_Offset: 80, Body_Shape: Truss, Low_Edge_Clearance: 0}
+        render: true
+
+  along_hinge:
+    label: Face slid along the hinge
+    description: >-
+      Face_Offset_X moves the face along the hinge against the board; the body
+      spans whatever the two plates span between them.
+    parameters:
+      Object_Units_X: 5
+    camera:
+      eye: [0, -260, 160]
+      center: [0, 0, 30]
+    matrix:
+      Face_Offset_X: [0, 28, 56]
+      Body_Shape: [Truss, Tube, Arch]
+    cases:
+      - params: {Face_Offset_X: 28}
+        render: true
+      # A face narrower than the board: the face plate's ends fall partway
+      # along the body, and each gets a 45-degree wedge so it prints on side.
+      - name: narrow-face
+        params: {Object_Units_X: 2}
+        render: true
+
+  body_shape:
+    label: Body shape
+    description: >-
+      What joins the two plates - a solid hull, a triangular tube, a tube braced
+      as a truss, a quarter-round arch, or gussets across the hinge.
+    matrix:
+      Body_Shape: [Solid, Tube, Truss, Arch, Ribbed]
+      Tilt_Angle: [20, 45, 80]
+    cases:
+      - params: {Body_Shape: Solid}
+        render: true
+      - params: {Body_Shape: Tube}
+        render: true
+      - params: {Body_Shape: Truss}
+        render: true
+      - params: {Body_Shape: Arch}
+        render: true
+      # Truss_Bays sets a Pratt's bays; the default Warren places its own.
+      - name: pratt-five-bays
+        params: {Body_Shape: Truss, Truss_Style: Pratt, Truss_Bays: 5}
+        render: true
+      - name: arch-closed
+        params: {Body_Shape: Arch, End_Walls: true}
+
+  shaping:
+    label: Shaping
+    description: >-
+      The outline rounded, the back wall standing plumb from the board's far
+      edge with the face's top as an eave over it, and the Truss as a Warren
+      with a joint behind each row of studs and its openings rounded - each
+      against its plain counterpart, which together are the part's old look.
+    matrix:
+      Profile_Rounding: [0, 2]
+      Back_Wall: [Plumb, Hull]
+      Truss_Style: [Warren, Pratt]
+      Tilt_Angle: [20, 45, 90]
+    cases:
+      - name: shaped
+        params: {}
+        render: true
+      - name: plain
+        params: {Profile_Rounding: 0, Back_Wall: Hull, Truss_Style: Pratt, Truss_Fillet: 0}
+        render: true
+      - name: shaped-upright
+        params: {Tilt_Angle: 90}
+        render: true
+      - name: shaped-shallow
+        params: {Tilt_Angle: 20}
+        render: true
+      # Thin plates hold the rounding under half their thickness, and a
+      # slotted face keeps its slots' depth square.
+      - name: thin-plates-slotted
+        params: {Board_Thickness: 3.5, Object_Thickness: 3.5, Object_Mount_Type: Slots}
+      # A face narrower than the board: an opening rounded where the face plate
+      # is missing would close up there and seal the rest of it as a void,
+      # which measures as a second body.
+      - name: narrow-face-openings
+        params: {Object_Units_X: 2}
+
+  ribbed_gussets:
+    label: Ribbed gussets
+    description: >-
+      The Ribbed body's gussets lie across the hinge, so they only show from
+      behind; side on they hide behind the outermost one.
+    camera:
+      eye: [190, 170, 150]
+      center: [0, 10, 25]
+    parameters:
+      Body_Shape: Ribbed
+    matrix:
+      Rib_Count: [2, 3, 5]
+    cases:
+      - params: {Rib_Count: 3}
+        render: true
+
+  object_face:
+    label: Object face mount
+    description: >-
+      Printed openConnect studs (the default, for an object that carries
+      slots), openConnect slots, or openGrid snaps.
+    camera:
+      eye: [-120, -190, 170]
+      center: [0, 0, 30]
+    # Snaps are placed by Snap_Placement, not Object_Mount_Position, so the
+    # two Snaps rows of this matrix are the same part.
+    matrix:
+      Object_Mount_Type: [Studs, Slots, Snaps]
+      Object_Mount_Position: [All, Corners]
+    cases:
+      - params: {Object_Mount_Type: Studs, Object_Mount_Position: All}
+        render: true
+      - params: {Object_Mount_Type: Slots, Object_Mount_Position: All}
+        render: true
+      - params: {Object_Mount_Type: Snaps}
+        render: true
+
+  board_face:
+    label: Board face mount
+    description: >-
+      openConnect slots or openGrid snaps on the face that meets the board,
+      both drawn by openGridMountBase().
+    camera:
+      eye: [120, -160, -120]
+      center: [0, 0, 10]
+    matrix:
+      Board_Mount_Type: [openConnect, Snaps]
+      Board_Units_X: [2, 4]
+      Board_Units_Y: [1, 2, 3]
+    cases:
+      - params: {Board_Mount_Type: openConnect}
+        render: true
+      - params: {Board_Mount_Type: Snaps}
+        render: true
+
+  handedness:
+    label: Handedness
+    description: >-
+      The right-hand part is the left one mirrored in its body only, with every
+      stud and slot re-placed rather than mirrored. With one tilt axis the
+      two are the same shape turned half a turn, except that the board's lock
+      nubs move to the other side of their slots, and the library cuts its
+      two nubs slightly differently - so the volumes agree to a few mm^3, not
+      exactly.
+    camera:
+      eye: [0, -260, 220]
+      center: [0, 0, 30]
+    matrix:
+      Handedness: [Left, Right]
+      Object_Slide_Direction: [Left, Up]
+    cases:
+      - params: {Handedness: Left}
+        render: true
+      - params: {Handedness: Right}
+        render: true
+
+  print_layout:
+    label: Print layout
+    description: >-
+      On Side stands the part on whichever end puts the studs' flat fronts on
+      the bed.
+    parameters:
+      Print_Orientation: On Side
+    camera:
+      eye: [260, -200, 160]
+      center: [30, 0, 50]
+    matrix:
+      Object_Slide_Direction: [Left, Right]
+    cases:
+      - params: {Object_Slide_Direction: Left}
+        render: true
