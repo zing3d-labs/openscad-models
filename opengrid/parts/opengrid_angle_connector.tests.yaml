@@ -136,11 +136,47 @@ features:
         render: true
       - params: {Body_Shape: Arch}
         render: true
-      - name: truss-five-bays
-        params: {Body_Shape: Truss, Truss_Bays: 5}
+      # Truss_Bays sets a Pratt's bays; the default Warren places its own.
+      - name: pratt-five-bays
+        params: {Body_Shape: Truss, Truss_Style: Pratt, Truss_Bays: 5}
         render: true
       - name: arch-closed
         params: {Body_Shape: Arch, End_Walls: true}
+
+  shaping:
+    label: Shaping
+    description: >-
+      The outline rounded, the back wall standing plumb from the board's far
+      edge with the face's top as an eave over it, and the Truss as a Warren
+      with a joint behind each row of studs and its openings rounded - each
+      against its plain counterpart, which together are the part's old look.
+    matrix:
+      Profile_Rounding: [0, 2]
+      Back_Wall: [Plumb, Hull]
+      Truss_Style: [Warren, Pratt]
+      Tilt_Angle: [20, 45, 90]
+    cases:
+      - name: shaped
+        params: {}
+        render: true
+      - name: plain
+        params: {Profile_Rounding: 0, Back_Wall: Hull, Truss_Style: Pratt, Truss_Fillet: 0}
+        render: true
+      - name: shaped-upright
+        params: {Tilt_Angle: 90}
+        render: true
+      - name: shaped-shallow
+        params: {Tilt_Angle: 20}
+        render: true
+      # Thin plates hold the rounding under half their thickness, and a
+      # slotted face keeps its slots' depth square.
+      - name: thin-plates-slotted
+        params: {Board_Thickness: 3.5, Object_Thickness: 3.5, Object_Mount_Type: Slots}
+      # A face narrower than the board: an opening rounded where the face plate
+      # is missing would close up there and seal the rest of it as a void,
+      # which measures as a second body.
+      - name: narrow-face-openings
+        params: {Object_Units_X: 2}
 
   ribbed_gussets:
     label: Ribbed gussets

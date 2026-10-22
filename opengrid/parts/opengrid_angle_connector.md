@@ -30,6 +30,7 @@ It has not been printed. Anything marked *open* still needs a decision.
 | Cable pass-through | None on the closed bodies. Ribbed's open back is the cable route. |
 | Arch past the board | Kept. At shallow tilts Arch reaches past the board's far edge; the part warns when it does. |
 | Studs come from the mount base | The object plate is an `openGridMountBase()` with `mountType = "openConnect Studs"`, the same base its slot and snap options use. Studs go exactly where the slotted base would cut slots, so the object's slots and these studs follow one set of placement rules. |
+| Shaping | **The part reads as one object.** The side outline is rounded, the back wall stands plumb from the board's far edge with the face's top as a short eave over it, and the Truss is a Warren with a joint behind each row of studs and rounded openings. Each is a setting, and the old look is one setting each away. See *Shaping*. |
 | Scope vs. the arbitrary-angle beam bracket ([#5](https://github.com/zing3d-labs/openscad-models/issues/5)) | A separate part, built for strength under typing load. The overlap is noted below and not shipped here. |
 
 ### Made in the draft, to review
@@ -44,8 +45,9 @@ These were judgment calls made to get a working part. Each one is a parameter, s
 2. **The default print orientation is On Side.** Layers then lie in the plane the
    tilt happens in, which is the plane typing load bends the part in. That is the
    strong orientation for a tent. It also prints both faces as vertical walls.
-3. **The default body is Truss.** It prints on side with no support inside, weighs
-   a little over half of Solid, and is triangulated against the racking a tall tent sees.
+3. **The default body is Truss, as a Warren.** It prints on side with no support
+   inside, weighs about two thirds of Solid, and is triangulated against the racking
+   a tall tent sees.
 4. **Handedness.** With one tilt axis, the right-hand part is the left-hand part
    turned 180°, so one print serves both halves. `Handedness = Right` still builds the
    true mirror image, so both halves can slide the same way in the world. That is
@@ -54,8 +56,8 @@ These were judgment calls made to get a working part. Each one is a parameter, s
    trailing edge (`Low_Edge_Offset = 0`), and `Low_Edge_Height = 0` picks the least
    height that keeps the object plate clear of the board plate. See *Placing the
    face* for moving it.
-6. **Default sizes:** board 4×2 units, object face 4×3 units, 5mm plates, 45° tilt,
-   studs on the corners. These are generic defaults, not sized for any one object.
+6. **Default sizes:** board 4×2 units, object face 4×3 units, 5mm plates, 4mm
+   walls and webs, 45° tilt, studs on the corners. These are generic defaults, not sized for any one object.
 
 ---
 
@@ -82,10 +84,14 @@ Customizer names; the module takes the same in camelCase.
 | `Object_Slide_Direction` | Left, Right, Up, Down | Left | The way the *object* slides to come off. Up means up the slope. |
 | `Object_Mount_Position` | All, Staggered, Edge Rows, Edge Columns, Corners | Corners | Which grid positions carry a stud or slot. |
 | `Body_Shape` | Solid, Tube, Truss, Arch, Ribbed | Truss | See *Body shapes*. |
-| `Wall_Thickness` | mm | 3 | Shell and web thickness for Tube, Truss and Arch. |
-| `Truss_Bays` | 1–8 | 3 | |
+| `Wall_Thickness` | mm | 4 | Shell and web thickness for Tube, Truss and Arch. Close to the plates' 5mm, so every member of the profile reads as one weight. |
+| `Truss_Bays` | 1–8 | 3 | Pratt only; a Warren places its own joints. |
 | `End_Walls` | bool | false | Closes the ends of Tube, Truss and Arch. |
 | `Rib_Count`, `Rib_Thickness` | 2–12, mm | 3, 4 | Ribbed only. |
+| `Profile_Rounding` | mm ≥ 0 | 2 | Radius on every outside corner of the side profile. Held under half the thinner plate. See *Shaping*. |
+| `Back_Wall` | Plumb, Hull | Plumb | Plumb stands the back wall up from the board's far edge, with the face's top as an eave over it (up to half a tile). Hull runs it straight to the face's high edge. |
+| `Truss_Style` | Warren, Pratt | Warren | Warren: diagonals only, a joint behind each row of the face's grid. Pratt: an upright and a diagonal per bay. |
+| `Truss_Fillet` | mm ≥ 0 | 2 | Radius on the corners of the Truss's openings. |
 | `Handedness` | Left, Right | Left | |
 | `Print_Orientation` | On Side, As Mounted | On Side | |
 
@@ -166,17 +172,17 @@ the hinge-overlap warning runs.
 
 ## Body shapes
 
-All renders below are at the defaults (45°, board 4×2, face 4×3). Volume is the
-solid model, plates included. A slicer's infill makes the real filament use lower
+Volumes are at the defaults (45°, board 4×2, face 4×3, 4mm walls, shaped). Volume
+is the solid model, plates included. A slicer's infill makes the real filament use lower
 and keeps the same order.
 
 | Shape | What it is | Volume | Prints on side | Notes |
 |---|---|---|---|---|
-| **Solid** | Hull of the two plates | 247 cm³ | yes | Stiffest and simplest. Most material. Also works for any compound pose. |
-| **Tube** | Triangular shell: board plate, object plate, back wall | 92 cm³ | yes | Lightest closed section; the plates are its other two walls. Good in torsion. The back wall is a long unbraced panel. |
-| **Truss** *(default)* | Tube with a web upright and diagonal per bay | 135 cm³ | yes | Triangulated, so the back wall and the face are braced. A good mid-point. |
-| **Arch** | Quarter-ellipse shell from the board's far edge to the face's top edge | 99 cm³ | yes | Closest to today's tents. At shallow tilts it bulges past the board's +Y edge (by 27mm at 45°), because an arch has to reach the face's top. |
-| **Ribbed** | Gussets across the hinge, back left open | 91 cm³ | **no**, print As Mounted | About as light as Tube. The open back is good for cables. On side, its inner ribs become shelves with a free edge (13× the steep overhang of the others, measured). |
+| **Solid** | Hull of the two plates | 226 cm³ | yes | Stiffest and simplest. Most material. Also works for any compound pose. |
+| **Tube** | Triangular shell: board plate, object plate, back wall | 95 cm³ | yes | Lightest closed section; the plates are its other two walls. Good in torsion. The back wall is a long unbraced panel. |
+| **Truss** *(default)* | Tube braced by webs: a Warren by default, or a Pratt | 151 cm³ | yes | Triangulated, so the back wall and the face are braced. A good mid-point. |
+| **Arch** | Quarter-ellipse shell from the board's far edge to the face's top edge | 108 cm³ | yes | Closest to today's tents. At shallow tilts it bulges past the board's +Y edge (by 27mm at 45°), because an arch has to reach the face's top. |
+| **Ribbed** | Gussets across the hinge, back left open | 88 cm³ | **no**, print As Mounted | About as light as Tube. The open back is good for cables. On side, its inner ribs become shelves with a free edge (13× the steep overhang of the others, measured). |
 
 Trade-offs for the keyboard:
 
@@ -188,6 +194,68 @@ Trade-offs for the keyboard:
 - **Ribbed only makes sense printed upright,** where its gussets stand
   vertical. Printed that way, the board-face slots face the bed as a normal
   base does, but the object face is tilted, and so are its studs.
+
+---
+
+## Shaping
+
+The first draft drew the part as three things stacked: a board plate, an object
+plate and a body between them, each with its own sharp edges. Renders across the
+options showed what that costs:
+
+- **Slabs, not an object.** The board plate stuck out past the face's low edge
+  as a stepped lip, the object plate's thickness showed as a separate band, and
+  every corner was sharp.
+- **A back wall that leaned out.** It ran straight from the face's high edge to
+  the board's far edge, so when the face was longer than the board reached, the
+  top hung out past the footprint. That reads as about to tip, and the back is
+  the side seen most in use.
+- **An irregular truss.** Bays of uneven width, a tiny first bay, joints that
+  did not line up with the studs, and 5mm chords against 3mm webs.
+
+Three settings answer those, all on by default:
+
+- **`Profile_Rounding` (2mm).** The side outline - board plate, body and object
+  plate together - is opened by the radius, which rounds every outside corner,
+  and then closed again so two rounded corners a step apart do not leave a
+  groove. The body also fills the notch between the object plate's square-cut
+  low end and the board's leading edge, so the front runs as one line from the
+  board up to the face. That notch is behind the face plane, clear of the
+  object. The rounding is an intersection, so it only ever takes material
+  away, and it never takes any from:
+  - anything in front of the face (studs, snaps), or a studded face between
+    its rounded ends;
+  - a slotted or snapped face's front edge, since a slot's cutter comes within
+    0.8mm of the plate edge and a snap's footprint within 1.2mm;
+  - the board plate from its underside up through the slots and their floor.
+  It is held under half the thinner plate, which would otherwise be eroded
+  away, and says so when it is.
+- **`Back_Wall = Plumb`.** Where the face's top reaches past the board's far
+  edge, the back wall stands straight up from that edge and the face's top
+  overhangs it as an eave, up to half a tile. A wall square to something reads
+  as intended; the old in-between lean read as accidental. Plumb also carries
+  the load straight down onto the board. Beyond half a tile the eave is a
+  cantilever, so the wall leans out as before. A face whose top stays over the
+  board is unchanged: its back wall already leans in.
+- **`Truss_Style = Warren`, `Truss_Fillet` (2mm).** Diagonals only, zigzagging
+  between joints on the object plate and joints on the board. The plate's joints
+  sit behind the rows of the face's grid, so a stud's load goes straight into
+  one. Rows where the body is less than three walls deep are skipped, and the
+  rest thinned to about one per tile of board depth, so a steep face does not
+  pack a web per row into a narrow profile. The board's joints fall between them
+  in proportion along the board, which spreads the zigzag over the whole profile
+  at any tilt. An end diagonal that would run almost alongside the wall it meets
+  is left out, so no sliver opening is left between them. The openings' corners
+  are rounded, which also takes the stress concentrations out of them.
+
+Printed on side, all three lie in the layer plane: the rounding, the eave and the
+openings add no overhang.
+
+Two limits. A face set out past the board leaves a profile of another shape -
+the chords no longer meet near the board's leading edge - so it gets a Pratt
+with sharp openings, and says so. A proper bracket shape for that placement is
+follow-up work. And the shelves left beside a face narrower than the board are
+not addressed yet.
 
 ---
 
@@ -327,12 +395,34 @@ check has a control that has to come out non-empty, so a pass is evidence.
   of the object plate's zone. The mate checks above are what prove it.
 - **Every sanity check fires.** Each error and warning was triggered by a
   placement built for it, and the defaults trigger none.
-- **One body.** All 91 cases in `opengrid_angle_connector.tests.yaml` measure
-  one body. The exception is a closed Arch, which reports its sealed hollow as a
-  second shell. A flat spacer (tilt 0) has its plates sitting straight on each
-  other. Where a Tube or Truss hollow left that contact with nothing
-  overlapping it, the union kept a zero-volume sheet between the plates and the
-  part measured two bodies. A 0.2mm slab across their shared footprint, inside
+- **Shaping takes nothing that mates.** Each check builds the part with and
+  without `Profile_Rounding` and measures where the two differ, both ways. The
+  difference is empty in front of the face; between a studded face's rounded
+  ends, behind its face; through a slotted face's slot depth (3mm, or the whole
+  3.5mm plate on thin plates); and in the board plate's lowest 3.5mm, which
+  holds its slots and their floor. That holds for studs at 20, 45, 70 and 90°,
+  snaps, slots on 5mm and on 3.5mm plates, Tube, and the lifted face. (The
+  slotted cases leave a 0.001mm³ sheet across the whole face, a coplanar seam
+  below the noise floor, and still measure one body.) Controls: the same
+  difference over the whole object plate is 125–1494mm³, and over the whole
+  board plate 4–328mm³. The first version trimmed 99mm³ from the snaps' rims,
+  which reach inside the rounding; snap faces now keep their edge square.
+  The body material the shaping adds - the Warren webs, the filled low-end
+  notch - is cut back by the same zones as the rest of the body, which keep it
+  out of both plates' mounts and the object's space, so the mate checks above
+  carry over.
+- **One body.** All 121 cases in `opengrid_angle_connector.tests.yaml` measure
+  one body, except where `End_Walls` closes a Tube, Truss or Arch: each sealed
+  hollow then reports as a shell of its own. The Truss's openings are rounded
+  once for the whole length, then trimmed to each stretch of the hinge. Rounded
+  stretch by stretch, a face narrower than the board closed its first opening
+  beside the face and sealed the rest of it as a void inside the body, which
+  measured as a second body.
+
+  A flat spacer (tilt 0) has its plates sitting straight on each other. Where a
+  Tube or Truss hollow left that contact with nothing overlapping it, the union
+  kept a zero-volume sheet between the plates and the part measured two bodies.
+  A 0.2mm slab across their shared footprint, inside
   both plates, now joins them, and the volume is unchanged.
 
 ---
@@ -344,6 +434,13 @@ None.
 ## Follow-up work proposed
 
 - **An explicit stud-position list** for the object face, overriding the grid.
+- **A bracket shape for a face set out past the board:** a curved knee brace from
+  the board to the face's underside, in place of a truss of long thin triangles,
+  with a minimum angle in the profile.
+- **A body no wider than a narrow face**, or tapered to it, so no shelves are
+  left beside it.
+- **The Arch as a cove** that curves in under the face and stays on the board,
+  rather than bulging out past it.
 - **A test print** of the default part, plus a slot coupon printed on its side,
   to settle the open printing question.
 - **Toe and roll in the Customizer**, which also means Tube, Truss and Arch must

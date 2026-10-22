@@ -49,6 +49,16 @@
   set out over the board - and directly behind the face below its low edge it
   takes hold of the plate's lower end.
 
+  The part is drawn as one outline, not two plates and a body stacked up.
+  Its side profile is rounded (Profile_Rounding) everywhere except in front
+  of the face and along the board's underside, and the body fills the notch
+  between the object plate's square-cut low end and the board's leading edge.
+  The back wall stands plumb from the board's far edge, with the face's top
+  as a short eave over it, rather than leaning out past the footprint. The
+  Truss is a Warren - diagonals only - with its joints behind the rows of the
+  face's grid, so a stud's load goes straight into one, and its openings are
+  rounded. Each of these is a setting (see Shaping) and can be turned off.
+
   That one matrix is the whole angle mechanism. The draft offers a single tilt
   axis, but the pose already takes a toe angle (about the board normal) and a
   roll (about the face's up-slope axis), and everything placed through it -
@@ -206,9 +216,10 @@ Object_Mount_Position = "Corners"; // [All, Staggered, Edge Rows, Edge Columns, 
 Body_Shape = "Truss"; // [Solid, Tube, Truss, Arch, Ribbed]
 
 // Wall thickness of the Tube, Truss and Arch shells and the Truss webs.
-Wall_Thickness = 3;
+Wall_Thickness = 4;
 
-// Bays in the Truss - each one is an upright and a diagonal.
+// Bays in a Pratt Truss - each one is an upright and a diagonal. A Warren
+// places its own joints, one behind each row of the face's grid.
 Truss_Bays = 3; // [1:1:8]
 
 // Close the ends of a Tube, Truss or Arch. Printed on side, the top end is a
@@ -219,6 +230,32 @@ End_Walls = false;
 Rib_Count = 3; // [2:1:12]
 
 Rib_Thickness = 4;
+
+/* [Shaping] */
+
+// Rounds every outside corner of the side profile by this radius, in mm -
+// plates included, but never in front of the face or along the board's
+// underside, nor into a slot's wall. 0 leaves the corners sharp. Held under
+// half the thinner plate.
+Profile_Rounding = 2;
+
+// Hull runs the back wall straight from the face's high edge to the board's
+// far edge, leaning out when the face reaches past the board. Plumb stands it
+// straight up from the board's far edge instead and lets the face's top
+// overhang it as an eave, up to half a tile; past that, and for a face set
+// out past the board, it falls back to Hull. A face whose top stays over the
+// board is unchanged either way: its back wall already leans in.
+Back_Wall = "Plumb"; // [Plumb, Hull]
+
+// Pratt is an upright and a diagonal per bay, Truss_Bays of them. Warren is
+// diagonals only, zigzagging between joints behind the rows of the face's
+// grid - so a stud sits over a joint - about one per tile of board depth; it
+// ignores Truss_Bays, and a face set out past the board gets a Pratt.
+Truss_Style = "Warren"; // [Warren, Pratt]
+
+// Rounds the corners of the Truss's openings, in mm. 0 leaves them sharp. Not
+// applied to a face set out past the board.
+Truss_Fillet = 2;
 
 /* [Layout] */
 
@@ -257,6 +294,10 @@ opengridAngleConnector(
   endWalls=End_Walls,
   ribCount=Rib_Count,
   ribThickness=Rib_Thickness,
+  profileRounding=Profile_Rounding,
+  backWall=Back_Wall,
+  trussStyle=Truss_Style,
+  trussFillet=Truss_Fillet,
   handedness=Handedness,
   printOrientation=Print_Orientation,
   $fn=Smoothing
@@ -275,6 +316,10 @@ ANGLE_CONNECTOR_REACH = 2000;
 // How far past the board plate's edge the face may reach before the part
 // says so. Reaching that far is allowed - it is a note, not a check.
 ANGLE_CONNECTOR_CANTILEVER_NOTE = 10;
+
+// The furthest a Plumb back wall lets the face's top overhang it, in grid
+// tiles. Further than that the eave is a cantilever, and the wall leans out.
+ANGLE_CONNECTOR_EAVE_TILES = 0.5;
 
 // Places the object frame in the part's frame. The hinge line - the object
 // face's low edge - runs along X at height `lift` and position `hingeY`, and
@@ -403,11 +448,15 @@ module opengridAngleConnector(
   objectSlideDirection = "Left",
   objectMountPosition = "Corners",
   bodyShape = "Truss",
-  wallThickness = 3,
+  wallThickness = 4,
   trussBays = 3,
   endWalls = false,
   ribCount = 3,
   ribThickness = 4,
+  profileRounding = 2,
+  backWall = "Plumb",
+  trussStyle = "Warren",
+  trussFillet = 2,
   handedness = "Left",
   printOrientation = "On Side"
 ) {
@@ -567,7 +616,22 @@ module opengridAngleConnector(
   back_high = objectCorner(object_d / 2, -objectThickness + 2 * eps);
   board_lo = [-board_d / 2, boardThickness - eps];
   board_hi = [board_d / 2, boardThickness - eps];
-  profile_points = [board_lo, board_hi, back_high, back_low];
+  // Where the body stops supporting the object plate at its high end. With
+  // a Plumb back wall, a face whose top reaches past the board's far edge is
+  // held only as far as that edge - a wall standing straight up from it - and
+  // the rest of the plate overhangs as an eave.
+  eave = back_high.x - board_hi.x;
+  plumb = backWall == "Plumb" && singleAxis && !lower_side
+    && eave > eps && eave <= ANGLE_CONNECTOR_EAVE_TILES * t;
+  chord_hi = plumb ? lerp(back_low, back_high, (board_hi.x - back_low.x) / (back_high.x - back_low.x))
+    : back_high;
+  // With the outline rounded, the body also reaches the face's low corner,
+  // filling the notch between the object plate's square-cut low end and the
+  // board's leading edge, so the front reads as one line from the board up to
+  // the face. That notch is behind the face plane, clear of the object.
+  flush_low = profileRounding > 0 && singleAxis && !lower_side;
+  profile_points = concat([board_lo, board_hi, chord_hi, back_low],
+    flush_low ? [face_lo - 2 * eps * slope_n] : []);
   profile = select(profile_points, hull2d_path(profile_points));
 
   // The Arch: a quarter-ellipse from the board plate's far edge round to the
@@ -614,10 +678,65 @@ module opengridAngleConnector(
   // The Truss's webs: an upright from the board to the object plate at each
   // bay, and a diagonal from the top of one to the foot of the next, so every
   // bay is triangulated. Drawn as a path and stroked to Wall_Thickness.
-  truss_path = [
+  pratt_path = [
     for (i = [1:trussBays])
-      each [lerp(board_lo, board_hi, i / (trussBays + 1)), lerp(back_low, back_high, i / (trussBays + 1))]
+      each [lerp(board_lo, board_hi, i / (trussBays + 1)), lerp(back_low, chord_hi, i / (trussBays + 1))]
   ];
+  // The Warren's joints along the object plate sit behind each row of the
+  // face's grid, so a stud's load goes straight into one - every row the
+  // body reaches, a member's width clear of the back wall. Its joints on the
+  // board fall between them in proportion: each the same fraction of the way
+  // along the board chord as the midpoint of its two neighbours is along the
+  // plate chord. Proportional rather than straight below, so the zigzag
+  // spreads over the whole profile at any tilt instead of crowding the front
+  // when the face is steep.
+  chord_len = norm(chord_hi - back_low);
+  // A row is a candidate where the body is at least three walls deep under
+  // it - nearer the low corner the opening between the webs would be a
+  // sliver - and the candidates are thinned to about one per tile of board
+  // depth, keeping the highest, so a steep face does not pack a web per row
+  // into a narrow profile.
+  warren_rows = [for (k = [0:objectUnitsY - 1])
+    let (s = (t / 2 + k * t) * norm(back_high - back_low) / object_d,
+         q = back_low + s * (chord_hi - back_low) / chord_len)
+    if (s < chord_len - wallThickness && q.y - board_lo.y >= 3 * wallThickness) s];
+  warren_n = min(len(warren_rows), max(1, round(norm(board_hi - board_lo) / t)));
+  warren_s = len(warren_rows) == 0 ? [] : warren_n == 1 ? [last(warren_rows)]
+    : [for (i = [warren_n - 1:-1:0]) warren_rows[len(warren_rows) - 1 - round(i * (len(warren_rows) - 1) / (warren_n - 1))]];
+  warren_bounds = concat([0], warren_s, [chord_len]);
+  // Joints as [point, on the object plate]. An end diagonal is drawn only
+  // where its top joint stands at least three walls off the wall it runs
+  // toward - the profile's front edge at the low end, the back wall at the
+  // high end. Nearer, the diagonal runs almost alongside that wall and leaves
+  // a sliver between them, so the end bay is left as one opening instead.
+  function lineDistance(p, a, b) = let (d = b - a) abs(cross(d, p - a)) / norm(d);
+  warren_joints = len(warren_s) == 0 ? [] : [
+    for (k = [0:len(warren_s)]) each concat(
+      [[lerp(board_lo, board_hi, (warren_bounds[k] + warren_bounds[k + 1]) / 2 / chord_len), false]],
+      k < len(warren_s) ? [[back_low + warren_s[k] * (chord_hi - back_low) / chord_len, true]] : [])
+  ];
+  warren_first = len(warren_joints) > 1
+    && lineDistance(warren_joints[1][0], board_lo, back_low) < 3 * wallThickness ? 1 : 0;
+  warren_last = len(warren_joints) - (len(warren_joints) > 1
+    && lineDistance(warren_joints[len(warren_joints) - 2][0], board_hi, chord_hi) < 3 * wallThickness ? 2 : 1);
+  // Each joint is pushed 1mm into the plate it meets, so a web's end
+  // overlaps that plate rather than stopping on its face - the body is cut
+  // back out of both plates anyway, so only the overlap is left.
+  warren_sunk = len(warren_joints) == 0 ? [] : [for (k = [warren_first:warren_last])
+    warren_joints[k][0] + (warren_joints[k][1] ? slope_n : [0, -1])];
+
+  // The Warren's two chords meet near the board's leading edge, as they do
+  // whenever the face leans back over the board. A face set out past it
+  // leaves a profile of another shape, which the clearance cut chops the
+  // diagonals out of; there the Pratt is drawn instead.
+  warren_fits = norm(back_low - board_lo) < t;
+  if (bodyShape == "Truss" && trussStyle == "Warren" && !warren_fits)
+    echo("opengridAngleConnector: note - a Warren truss needs the face's low edge near the board's leading edge; drawing a Pratt for this placement.");
+  truss_path = trussStyle == "Warren" && warren_fits ? warren_sunk : pratt_path;
+  // Rounded openings go with the Warren's placements: on a face set out past
+  // the board the opening closes a sliver of hollow behind the low edge into
+  // a piece of its own.
+  truss_fillet = warren_fits ? trussFillet : 0;
 
   // Extrudes a 2D (Y, Z) child across X, centred on the body's span. The
   // builtin offset() is used on these rather than BOSL2's function, because
@@ -646,6 +765,28 @@ module opengridAngleConnector(
   // body keeps a floor or a face-side wall of its own there. Without it the
   // plate's end would start in mid-air on an on-side print.
   module profileHollow(region, withBoard = true, withObject = true) {
+    // The Truss's webs come out of the hollow here, in the side view, so the
+    // openings they leave can be rounded. They are rounded once, as if both
+    // plates ran the body's whole length, and only then trimmed to this
+    // stretch's own hollow: rounded stretch by stretch, an opening thin enough
+    // to close up where a plate is missing would close there and nowhere else,
+    // sealing the rest of it as a void inside the body.
+    if (bodyShape == "Truss" && truss_fillet > 0)
+      intersection() {
+        offset(r=truss_fillet) offset(delta=-truss_fillet) trussOpenings(region, true, true);
+        profileHollowPlain(region, withBoard, withObject);
+      }
+    else profileHollowPlain(region, withBoard, withObject);
+  }
+
+  module trussOpenings(region, withBoard, withObject) {
+    difference() {
+      profileHollowPlain(region, withBoard, withObject);
+      if (len(truss_path) > 1) stroke(truss_path, width=wallThickness);
+    }
+  }
+
+  module profileHollowPlain(region, withBoard, withObject) {
     intersection() {
       offset(delta=-wallThickness) union() {
         clippedProfile(region);
@@ -735,7 +876,8 @@ module opengridAngleConnector(
           spanHollow(region);
           if (endWalls) for (x = [body_x0 + wallThickness / 2, body_x1 - wallThickness / 2]) translate([x, 0, 0])
             cuboid([wallThickness, reach, reach]);
-          if (bodyShape == "Truss") extrudeAcross(body_w + 4) stroke(truss_path, width=wallThickness);
+          if (bodyShape == "Truss" && truss_fillet <= 0 && len(truss_path) > 1)
+            extrudeAcross(body_w + 4) stroke(truss_path, width=wallThickness);
         }
       }
     } else {
@@ -817,7 +959,68 @@ module opengridAngleConnector(
     }
   }
 
+  // The part's outline in the side view, rounded. Everything the side view
+  // shows of it - board plate, body profile, object plate - is joined, and
+  // its corners rounded by opening it (in, then out) by Profile_Rounding.
+  // The rounding only ever takes material away: it is an intersection.
+  // Kept square along the board's underside, where the part meets the board,
+  // and nothing is taken in front of the face, where the studs, slots or
+  // snaps are.
+  rounding = singleAxis && profileRounding > 0;
+  // Opening a plate by more than half its thickness would take it away, so
+  // the radius is held under that on thin plates.
+  profile_r = min(profileRounding, 0.45 * min(boardThickness, objectThickness));
+  if (rounding && profile_r < profileRounding)
+    echo(str("opengridAngleConnector: note - Profile_Rounding is held to ", profile_r,
+      "mm, under half the thinner plate."));
+  // How much of each plate is never rounded: the board from its underside up,
+  // and a slotted face from its face back - at least as deep as a slot and
+  // the floor behind it, so no slot's wall is thinned.
+  slot_keep = openGridMountMinThickness();
+  board_keep = boardMountType == "openConnect"
+    ? max(boardThickness - profile_r, min(boardThickness, slot_keep)) : boardThickness - profile_r;
+  object_keep = max(objectThickness - profile_r, min(objectThickness, slot_keep));
+  module silhouette() {
+    translate([-board_d / 2, 0]) square([board_d, boardThickness]);
+    polygon(bodyShape == "Arch" ? arch_region_ccw : profile);
+    polygon([face_lo, face_hi, face_hi - objectThickness * slope_n, face_lo - objectThickness * slope_n]);
+  }
+  module roundedEnvelope() {
+    extrudeAcross(reach) union() {
+      // Opened to round the outside corners, then closed again, so two
+      // rounded corners a step apart - the board's leading edge and the
+      // face's low end - do not leave a groove between them.
+      offset(r=-profile_r) offset(delta=profile_r)
+        offset(r=profile_r) offset(delta=-profile_r) silhouette();
+      translate([-board_d / 2, 0]) square([board_d, max(0, board_keep)]);
+      // A slot's cutter comes within 0.8mm of the plate's edge, so a face
+      // carrying slots keeps its face-side corners square: only the back
+      // corners, behind the slots and their floor, are rounded. A snap's
+      // footprint reaches within 1.2mm of the edge, so a face carrying snaps
+      // keeps them square too. Studs stand 3mm in, clear of the rounding, and
+      // there the kept zone starts `eps` into the plate between the rounded
+      // corners: cut exactly on the face plane, the studs would only touch the
+      // plate across it and export as bodies of their own.
+      let (slotted = objectMountType == "Slots",
+           studded = objectMountType == "Studs",
+           keep = slotted ? object_keep : eps,
+           inset = studded ? profile_r : 0)
+        polygon([face_lo + inset * slope_u - keep * slope_n, face_hi - inset * slope_u - keep * slope_n,
+          face_hi + reach * slope_n, face_lo + reach * slope_n]);
+    }
+  }
+  assert(profileRounding >= 0, str("Profile_Rounding cannot be negative - it is ", profileRounding, "mm."));
+
   module assembled() {
+    if (rounding)
+      intersection() {
+        assembledSharp();
+        if (rightHand) multmatrix(ANGLE_CONNECTOR_MIRROR) roundedEnvelope(); else roundedEnvelope();
+      }
+    else assembledSharp();
+  }
+
+  module assembledSharp() {
     union() {
       if (rightHand) multmatrix(ANGLE_CONNECTOR_MIRROR) bodyLeft(); else bodyLeft();
       if (plates_touch) plateJoin();
