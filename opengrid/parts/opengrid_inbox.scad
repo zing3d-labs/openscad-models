@@ -594,10 +594,29 @@ module openGridInbox(
   }
 
   // openConnect slots, cut into the wall-facing side of the back panel.
-  // The library builds a grid in its own frame (+Y up the wall, +Z into the
-  // panel), so xrot(90) lands it on the Y = 0 wall plane facing outward.
+  //
+  // The library builds its grid the way a plate uses it: wide end at the
+  // grid's own BOTTOM, narrowing upward, with the mount face at its TOP and
+  // the material below. Here the material sits behind the wall face, so the
+  // grid is turned over before it is laid on that face: rot(180, v=BACK)
+  // about its TOP puts the narrow end at the face and the wide end inside
+  // the panel, leaving the retaining lip at the mouth that the connector's
+  // flange hooks behind. Then xrot(90) stands it up on the Y = 0 wall plane,
+  // with the library's +Y running up the wall.
+  //
+  // Laid on untransformed, the wide end lands at the wall face instead: an
+  // open pocket with nothing to hold the connector in.
+  //
+  // The turn is a rotation, never a mirror. zflip() would reverse the
+  // cutter's handedness, and the connector head is chiral - its two lock
+  // detents are cut by different code - so a mirrored slot presents its nub
+  // to the wrong one. Being a rotation, the turn also carries the library's
+  // own conventions through intact: its slot_lock_side is named looking into
+  // the slot mouth, so "Left" here is left as seen from the wall side, which
+  // is what the Customizer says. The rotation is about the slide axis, so
+  // "Up" still slides up the wall.
   module mountSlots() {
-    up(grid_center_z) xrot(90)
+    up(grid_center_z) xrot(90) rot(180, v=BACK)
       openconnect_slot_grid(
         slot_type="slot",
         horizontal_grids=h_grids,
@@ -607,7 +626,8 @@ module openGridInbox(
         slot_lock_distribution=slotLockDistribution,
         slot_lock_side=slotLockSide,
         slot_entryramp_flip=slotEntryRampFlip,
-        excess_thickness=EPS
+        excess_thickness=EPS,
+        anchor=TOP
       );
   }
 
