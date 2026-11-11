@@ -1,0 +1,73 @@
+# Feature tests for the openGrid inbox.
+#
+# Organised by feature, not by parameter: each entry below is one thing the
+# part does, the camera angle that shows it, and the parameter combinations
+# that prove it works. Every case is measured (bounding box, volume, body
+# count); the cases marked `render: true` are also pictured.
+#
+# See docs/visual-regression-tests.md for the format and how to add a feature.
+
+version: 1
+part: opengrid_inbox.scad
+description: >-
+  A wall-mounted paper inbox that hangs on an openGrid wall by openConnect
+  slots cut into its back panel.
+
+defaults:
+  imgsize: [900, 700]
+  colorscheme: Tomorrow Night
+  # The model is built as-mounted and centred: +Y points at the wall, +Z is up.
+  # This looks at the pocket from the room side, above and to the left.
+  camera:
+    eye: [-380, -380, 260]
+    center: [0, 0, 0]
+  parameters:
+    # Lower than the part's own default of 64. Facet count drives render time
+    # far more than it changes what a reviewer can see, and both sides of a
+    # comparison use the same value, so nothing is lost by turning it down.
+    Smoothing: 40
+
+features:
+
+  paper_and_perforation:
+    label: Paper size and perforation
+    description: >-
+      The pocket sized for each paper preset, with the front and side panels
+      perforated in a hex or square pattern, or left solid.
+    matrix:
+      Paper_Size: [US Letter, A4, A5]
+      Perforation_Pattern: [Hex, Square, None]
+    cases:
+      - params: {Paper_Size: US Letter, Perforation_Pattern: Hex}
+        render: true
+      - params: {Paper_Size: A5, Perforation_Pattern: Square}
+        render: true
+
+  mount_slots:
+    label: openConnect slots
+    description: >-
+      The openConnect slots in the wall face of the back panel. Each slot must
+      be narrowest at the wall face and widen behind it, leaving the lip the
+      connector's head hooks behind.
+    # Close in on one slot from the wall side, low and to one side, looking up
+    # into its mouth. Behind a correct slot's lip the side walls are hidden; a
+    # slot cut the wrong way up shows them all the way round. Aimed at the slot
+    # centred at X 14, Z 14 on the default US Letter grid, whose wall face is at
+    # Y 44.56.
+    camera:
+      eye: [-5, 110, -25]
+      center: [14, 44, 14]
+    parameters:
+      # Perforation is on the other panels and only costs render time here.
+      Perforation_Pattern: None
+    matrix:
+      Slot_Position: [All, Staggered, Edge Rows, Edge Columns, Corners]
+      Slot_Lock_Distribution: [Corners, All, None]
+    cases:
+      - params: {Slot_Position: All, Slot_Lock_Distribution: All}
+        render: true
+      - name: locks-right
+        params: {Slot_Lock_Distribution: All, Slot_Lock_Side: Right}
+        render: true
+      - name: entry-ramp-flipped
+        params: {Slot_Entry_Ramp_Flip: true}
