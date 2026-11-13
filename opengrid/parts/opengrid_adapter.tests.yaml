@@ -1,0 +1,244 @@
+# Feature tests for the openGrid adapter plate.
+#
+# The plate is two grids in one outline - openGrid on the back, another
+# system's connectors on the front - so most of what can go wrong is in how
+# the two are counted and placed against each other. Each feature below is one
+# of those rules, with the cases that would show it breaking.
+#
+# See docs/visual-regression-tests.md for the format and how to add a feature.
+
+version: 1
+part: opengrid_adapter.scad
+description: >-
+  A plate that mounts to openGrid on its back and carries Multiconnect studs or
+  slots, openConnect studs or openGrid snaps on its front, each face on its own
+  pitch, in the smallest outline holding both.
+
+defaults:
+  imgsize: [900, 700]
+  colorscheme: Tomorrow Night
+  # The front is the top face, and it is what changes from case to case, so
+  # the default camera looks down at it.
+  camera:
+    eye: [110, -110, 95]
+    center: [0, 0, 0]
+  parameters:
+    Smoothing: 40
+
+features:
+
+  front_mount_type:
+    label: Front mount type
+    description: >-
+      What the front carries, against each of the backs the mount base offers.
+      Studs and snaps stand off the front, slots cut into it; every pairing has
+      to come out as one body.
+    matrix:
+      Front_Mount_Type: [Multiconnect Studs, Multiconnect Slots, openConnect Studs, openGrid Snaps, None]
+      Back_Mount_Type: [openConnect, openConnect Studs, Snaps]
+    cases:
+      - params: {Front_Mount_Type: Multiconnect Studs, Back_Mount_Type: openConnect}
+        render: true
+      - params: {Front_Mount_Type: Multiconnect Slots, Back_Mount_Type: openConnect}
+        render: true
+      - params: {Front_Mount_Type: openConnect Studs, Back_Mount_Type: openConnect}
+        render: true
+      - params: {Front_Mount_Type: openGrid Snaps, Back_Mount_Type: openConnect}
+        render: true
+      # A stud back on a slab thickened for front slots, at 4.95mm: the
+      # thickness at which the stud base used to export its studs as separate
+      # bodies.
+      - name: slotted-front-stud-back
+        params: {Front_Mount_Type: Multiconnect Slots, Back_Mount_Type: openConnect Studs}
+
+  back:
+    label: The back
+    description: >-
+      The mount base, drawn in an outline set by the front. Looked at from the
+      board side, where the slots are.
+    camera:
+      eye: [110, -110, -95]
+      center: [0, 0, 0]
+    matrix:
+      Slot_Slide_Direction: [Up, Down, Left, Right]
+      Back_Mount_Type: [openConnect, Snaps]
+    cases:
+      - params: {Slot_Slide_Direction: Up, Back_Mount_Type: openConnect}
+        render: true
+      - params: {Slot_Slide_Direction: Right, Back_Mount_Type: openConnect}
+        render: true
+      - params: {Slot_Slide_Direction: Up, Back_Mount_Type: Snaps}
+        render: true
+
+  auto_count:
+    label: Auto counts and the bounding outline
+    description: >-
+      A count of 0 on either face is as many as fit the other, and the plate is
+      the smallest rectangle holding both. A one-column front cannot be backed
+      within its own width, so the plate grows past it to a whole tile.
+    camera:
+      eye: [130, -130, -100]
+      center: [0, 0, 0]
+    cases:
+      # 75x75 with a 2x2 of slots - the default.
+      - name: three-by-three-front
+        params: {Front_Columns: 3, Front_Rows: 3}
+        render: true
+      # 28x28: the slot is wider than one 25mm cell.
+      - name: one-by-one-front
+        params: {Front_Columns: 1, Front_Rows: 1}
+        render: true
+      # A hook: one column, three rows - 28x75 with a 1x2 of slots.
+      - name: hook
+        params: {Front_Columns: 1, Front_Rows: 3}
+        render: true
+      - name: four-wide
+        params: {Front_Columns: 4, Front_Rows: 1}
+      - name: five-wide
+        params: {Front_Columns: 5, Front_Rows: 1}
+      # The other way round: the back given, the front on Auto - 84x84 with a
+      # 3x3 of Multiconnect studs.
+      - name: back-given-front-auto
+        params: {Back_Units_X: 3, Back_Units_Y: 3, Front_Columns: 0, Front_Rows: 0}
+        render: true
+      # Each axis is settled on its own, so the two can trade.
+      - name: auto-across-and-down
+        params: {Back_Units_X: 0, Back_Units_Y: 2, Front_Columns: 4, Front_Rows: 0}
+      - name: both-given
+        params: {Back_Units_X: 2, Back_Units_Y: 2, Front_Columns: 2, Front_Rows: 2}
+
+  alignment:
+    label: Front alignment
+    description: >-
+      Where the front sits against the back. Alignment lines up an edge, the
+      offset moves on from there, and the outline grows to hold both wherever
+      they ended up - the back's slots moving with the back.
+    camera:
+      eye: [130, -130, -100]
+      center: [0, 0, 0]
+    parameters:
+      Back_Units_X: 2
+      Back_Units_Y: 2
+      Front_Columns: 4
+      Front_Rows: 4
+    matrix:
+      Front_Align_X: [Center, Left, Right]
+      Front_Align_Y: [Center, Top, Bottom]
+    cases:
+      - params: {Front_Align_X: Left, Front_Align_Y: Top}
+        render: true
+      - params: {Front_Align_X: Right, Front_Align_Y: Bottom}
+        render: true
+      # A 50mm front lined up on the back's left edge and pushed 20mm further
+      # out: it overhangs by 20mm, so the plate is 76mm across, not 56.
+      - name: offset-past-the-back
+        params: {Front_Columns: 2, Front_Rows: 2, Front_Align_X: Left, Front_Align_Y: Center, Front_Offset_X: -20}
+        render: true
+
+  explicit_size:
+    label: Explicit width and height
+    description: >-
+      Width and Height enlarge the plate round both faces. They are never
+      allowed to make it smaller than what it carries.
+    camera:
+      eye: [140, -140, 110]
+      center: [0, 0, 0]
+    cases:
+      - name: larger-than-needed
+        params: {Width: 120, Height: 90}
+        render: true
+      - name: exactly-the-footprint
+        params: {Width: 75, Height: 75}
+
+  multiconnect_slots:
+    label: Multiconnect slot direction and lines
+    description: >-
+      Channels closed at the end the hung part slides away from, with an
+      on-ramp half a cell past every head position. The placement pattern
+      picks whole lines of cells.
+    parameters:
+      Front_Mount_Type: Multiconnect Slots
+      Front_Columns: 4
+      Front_Rows: 3
+    matrix:
+      Front_Slide_Direction: [Up, Down, Left, Right]
+      Front_Position: [All, Edge Columns, Edge Rows]
+    cases:
+      - params: {Front_Slide_Direction: Up, Front_Position: All}
+        render: true
+      - params: {Front_Slide_Direction: Right, Front_Position: All}
+        render: true
+      - params: {Front_Slide_Direction: Up, Front_Position: Edge Columns}
+        render: true
+
+  multiconnect_studs:
+    label: Multiconnect studs
+    description: >-
+      The head turned flange-outward, with each pattern the library offers on
+      its face, and at a pitch other than Multiboard's own.
+    # Close on one stud, low enough to see the flange stand over the neck.
+    camera:
+      eye: [45, -45, 28]
+      center: [0, 0, 4]
+    parameters:
+      Front_Columns: 1
+      Front_Rows: 1
+    matrix:
+      Multiconnect_Head_Pattern: [Dimple, Coin Slot, None]
+    cases:
+      - params: {Multiconnect_Head_Pattern: Dimple}
+        render: true
+      - params: {Multiconnect_Head_Pattern: Coin Slot}
+        render: true
+      - name: pitch-28
+        params: {Front_Pitch: 28, Front_Columns: 2, Front_Rows: 2}
+        render: true
+
+  front_placement:
+    label: Front placement pattern
+    description: >-
+      Which front cells carry a connector, in the mount base's vocabulary.
+    parameters:
+      Front_Columns: 4
+      Front_Rows: 4
+    matrix:
+      Front_Position: [All, Staggered, Edge Rows, Edge Columns, Corners]
+      Front_Mount_Type: [Multiconnect Studs, openConnect Studs]
+    cases:
+      - params: {Front_Position: Staggered, Front_Mount_Type: Multiconnect Studs}
+        render: true
+      - params: {Front_Position: Corners, Front_Mount_Type: openConnect Studs}
+        render: true
+
+  thickness:
+    label: Slab thickness
+    description: >-
+      Cuts from the two faces are kept apart in depth: a plate with slots in
+      both is raised to both depths plus a floor between them, and says so.
+    camera:
+      eye: [130, -130, 30]
+      center: [0, 0, 0]
+    matrix:
+      Thickness: [3.5, 4, 8]
+      Front_Mount_Type: [Multiconnect Studs, Multiconnect Slots]
+    cases:
+      - params: {Thickness: 4, Front_Mount_Type: Multiconnect Slots}
+        render: true
+
+  corner_refinement:
+    label: Corner refinement
+    description: >-
+      The mount base's corner refinement, in an outline the front sets. It
+      costs the back corner slots exactly as it does on the base.
+    camera:
+      eye: [130, -130, -100]
+      center: [0, 0, 0]
+    parameters:
+      Front_Columns: 4
+      Front_Rows: 4
+    matrix:
+      Corner_Refinement_Type: [None, Chamfer, Fillet]
+      Corner_Refinement_Size: [2, 6]
+    cases:
+      - params: {Corner_Refinement_Type: Fillet, Corner_Refinement_Size: 6}
+        render: true

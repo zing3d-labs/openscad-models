@@ -76,7 +76,7 @@ At the defaults — US Letter portrait, hex, 12mm cells, 2mm walls, 8mm border, 
 
 The model is built as-mounted: **+Y points at the wall**, so the back panel's outer face lies in the plane `Y = 0` and the pocket hangs out toward −Y. +Z is up.
 
-Slots are cut into the wall-facing face, sliding **up** — the part drops down onto the openConnect connectors, so gravity holds it in place.
+Slots are cut into the wall-facing face, sliding **up** — the part drops down onto the openConnect connectors, so gravity holds it in place. Each slot is narrowest at the wall face and widens behind it, leaving a lip the connector's head hooks behind; that lip is what holds the part to the wall.
 
 ## Named anchors
 

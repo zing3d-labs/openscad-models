@@ -153,6 +153,17 @@ def _case_block(
 ) -> list[str]:
     lines: list[str] = []
     title = _parameter_sentence(case["parameters"], _baseline_parameters(feature))
+    refusal = case.get("refusal")
+    if refusal:
+        lines.append(
+            f"**{title}** — expected to refuse (`{case['expect_error']}`): "
+            f"before **{refusal['base']}**, after **{refusal['head']}**"
+        )
+        lines.append("")
+        for error in case.get("errors") or []:
+            lines.append(f"> ⚠️ {error}")
+            lines.append("")
+        return lines
     image = case.get("image") or {}
     if image.get("changed"):
         stat = (
@@ -200,7 +211,11 @@ def _new_case_block(
 ) -> list[str]:
     """A case with no before: the head's render and its own numbers."""
     title = _parameter_sentence(case["parameters"], _baseline_parameters(feature))
-    lines = [f"**{title}** — {_measurement_sentence(case.get('head'))}", ""]
+    refusal = case.get("refusal")
+    if refusal:
+        lines = [f"**{title}** — expected to refuse (`{case['expect_error']}`): **{refusal['head']}**", ""]
+    else:
+        lines = [f"**{title}** — {_measurement_sentence(case.get('head'))}", ""]
     head_image = (case.get("images") or {}).get("head")
     if head_image and base_url and detail in (FULL, COLLAPSED):
         lines.append(f'<img src="{_image_url(base_url, part, head_image)}" width="{THUMBNAIL_WIDTH}">')
@@ -295,9 +310,14 @@ def _render(result: dict[str, Any], base_url: str | None, detail: int, notes: li
             lines.append("")
             for case in feature["cases"]:
                 if case["changed"]:
+                    outcome = (
+                        f"refusal {case['refusal']['base']} → {case['refusal']['head']}"
+                        if case.get("refusal")
+                        else _metric_sentence(case.get("metrics"))
+                    )
                     lines.append(
                         f"- {_parameter_sentence(case['parameters'], _baseline_parameters(feature))}"
-                        f" — {_metric_sentence(case.get('metrics'))}"
+                        f" — {outcome}"
                     )
             lines.append("")
             lines.append("</details>")
@@ -338,7 +358,9 @@ def _render(result: dict[str, Any], base_url: str | None, detail: int, notes: li
         lines.append("")
         for feature in unchanged:
             compared = len(feature["cases"]) - feature.get("new_cases", 0)
-            lines.append(f"- **{feature['label']}** — {compared} cases, no change")
+            refusing = sum(1 for c in feature["cases"] if (c.get("refusal") or {}).get("head") == "refused")
+            note = f" ({refusing} refusing to build, as expected)" if refusing else ""
+            lines.append(f"- **{feature['label']}** — {compared} cases, no change{note}")
         lines.append("")
         lines.append("</details>")
         lines.append("")
