@@ -140,6 +140,17 @@ def _case_block(
 ) -> list[str]:
     lines: list[str] = []
     title = _parameter_sentence(case["parameters"], _baseline_parameters(feature))
+    refusal = case.get("refusal")
+    if refusal:
+        lines.append(
+            f"**{title}** — expected to refuse (`{case['expect_error']}`): "
+            f"before **{refusal['base']}**, after **{refusal['head']}**"
+        )
+        lines.append("")
+        for error in case.get("errors") or []:
+            lines.append(f"> ⚠️ {error}")
+            lines.append("")
+        return lines
     image = case.get("image") or {}
     if image.get("changed"):
         stat = (
@@ -217,9 +228,14 @@ def _render(result: dict[str, Any], base_url: str | None, detail: int, notes: li
             lines.append("")
             for case in feature["cases"]:
                 if case["changed"]:
+                    outcome = (
+                        f"refusal {case['refusal']['base']} → {case['refusal']['head']}"
+                        if case.get("refusal")
+                        else _metric_sentence(case.get("metrics"))
+                    )
                     lines.append(
                         f"- {_parameter_sentence(case['parameters'], _baseline_parameters(feature))}"
-                        f" — {_metric_sentence(case.get('metrics'))}"
+                        f" — {outcome}"
                     )
             lines.append("")
             lines.append("</details>")
@@ -256,7 +272,9 @@ def _render(result: dict[str, Any], base_url: str | None, detail: int, notes: li
         lines.append(f"<details><summary>Unchanged features ({len(unchanged)})</summary>")
         lines.append("")
         for feature in unchanged:
-            lines.append(f"- **{feature['label']}** — {len(feature['cases'])} cases, no change")
+            refusing = sum(1 for c in feature["cases"] if (c.get("refusal") or {}).get("head") == "refused")
+            note = f" ({refusing} refusing to build, as expected)" if refusing else ""
+            lines.append(f"- **{feature['label']}** — {len(feature['cases'])} cases, no change{note}")
         lines.append("")
         lines.append("</details>")
         lines.append("")
