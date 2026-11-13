@@ -19,7 +19,7 @@ from typing import Any
 
 from .deps import affected_parts, discover_parts, spec_path_for
 from .report import build_comment, canary_note, marker
-from .runner import Side, canary, load_part_spec, run_part, write_result
+from .runner import Side, canary, known_cases_in, load_part_spec, run_part, write_result
 from .spec import SpecError, load_spec
 
 
@@ -157,12 +157,26 @@ def command_run(args: argparse.Namespace) -> int:
     spec = load_part_spec(repo, part)
     base = Side.create("base", args.base_root, args.openscad, ref=args.base_ref or "")
     head = Side.create("head", repo, args.openscad, ref=args.head_ref or "")
-    result = run_part(part, spec, base, head, args.out.resolve(), jobs=args.jobs)
+    # What the base checkout's own spec tests, so a case this change adds is
+    # reported as new instead of being compared against a part that has never
+    # heard of its parameters. With no spec, or one this tooling cannot read,
+    # on the base side there is nothing to tell new from old, so every case is
+    # compared as before: a spec added alongside a change to an existing part
+    # still shows what that change did.
+    known: set[tuple[str, str]] | None = None
+    base_spec_path = args.base_root.resolve() / spec_path_for(part)
+    if base_spec_path.is_file():
+        try:
+            known = known_cases_in(load_spec(base_spec_path, args.base_root.resolve()))
+        except SpecError as exc:
+            print(f"base spec unreadable, comparing every case: {exc}", file=sys.stderr)
+            known = None
+    result = run_part(part, spec, base, head, args.out.resolve(), jobs=args.jobs, known_cases=known)
     path = write_result(args.out.resolve(), result)
     print(f"wrote {path}")
     print(
         f"{sum(1 for f in result['features'] if f['changed'])} of {len(result['features'])} "
-        f"feature(s) changed"
+        f"feature(s) changed, {result['new_cases']} new case(s)"
     )
     _github_output({"changed": "true" if result["changed"] else "false"})
     return 0

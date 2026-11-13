@@ -29,6 +29,14 @@ geometry moved.
 3. **Numbers on every case.** Bounding box, volume, connected body count and
    triangle count, taken from an exported mesh.
 4. **Pictures on the designated cases.** Before, after, and an amplified diff.
+   A case the base branch's own spec does not define is **new**: there is no
+   before to compare it with — the old part would only show what it makes of a
+   setting it has never heard of — so it is rendered and measured on the pull
+   request's side alone, and reported in its own section rather than as a
+   change. Cases are matched by feature key and case name. When the base branch
+   has no spec for the part, or one this tooling cannot read, nothing can be
+   told apart and every case is compared, as it was before new cases were
+   recognised.
 5. **A pull request comment**, one per part, updated in place on each push.
    It shows the features that changed and collapses the ones that did not.
    Full-resolution images are also attached to the run as an artifact.
